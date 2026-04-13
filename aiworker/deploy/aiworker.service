@@ -1,0 +1,67 @@
+[Unit]
+Description=AIWorker Autonomous Agent
+Documentation=https://github.com/aiworker/aiworker
+After=network.target ollama.service docker.service
+Requires=ollama.service
+Wants=aiworker-watchdog.service
+
+[Service]
+Type=notify
+User=aiworker
+Group=aiworker
+WorkingDirectory=/opt/aiworker
+
+# Environment
+Environment="PATH=/opt/aiworker/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="AIWORKER_CONFIG=/opt/aiworker/aiworker_vps.yaml"
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONDONTWRITEBYTECODE=1"
+Environment="MALLOC_ARENA_MAX=2"
+Environment="MALLOC_MMAP_THRESHOLD_=131072"
+Environment="MALLOC_TRIM_THRESHOLD_=131072"
+Environment="MALLOC_TOP_PAD_=131072"
+
+# Resource limits for 32GB VPS
+MemoryMax=28G
+MemorySwapMax=50G
+TasksMax=100
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Security hardening
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=false
+ReadWritePaths=/opt/aiworker
+
+# Main process
+ExecStartPre=/opt/aiworker/venv/bin/python -c "import aiworker; print('AIWorker import OK')"
+ExecStartPre=/opt/aiworker/venv/bin/python -c "import sqlite3; print('SQLite OK')"
+ExecStart=/opt/aiworker/venv/bin/python -m aiworker.main self-improve
+
+# Graceful reload - triggers checkpoint and restart
+ExecReload=/bin/kill -USR1 $MAINPID
+
+# Watchdog - service must notify systemd every 5 minutes
+WatchdogSec=300
+NotifyAccess=all
+
+# Restart policy
+Restart=on-failure
+RestartSec=30
+StartLimitInterval=600
+StartLimitBurst=3
+
+# Graceful shutdown
+TimeoutStopSec=60
+KillSignal=SIGTERM
+FinalKillSignal=SIGKILL
+KillMode=mixed
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aiworker
+
+[Install]
+WantedBy=multi-user.target

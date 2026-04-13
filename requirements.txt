@@ -1,0 +1,6 @@
+# requirements.txt  Friday root worker (friday_runner.py + friday/)
+# trading_system has its own requirements.txt
+pydantic==2.12.5
+pydantic-settings>=2.10.1
+httpx==0.28.1
+requests>=2.31.0

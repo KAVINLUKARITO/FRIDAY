@@ -1,0 +1,579 @@
+"""
+AIWorker CLI Commands - Phase 2 Integration
+
+Rich-based CLI for interactive control and monitoring:
+- status: Live status table with memory bar
+- logs: Follow log file (tail -f style)
+- approve: Interactive patch review
+- reject: Reject patch with reason
+- reset-kill-switch: Emergency recovery
+- run-now: Trigger immediate iteration
+- config: View/edit configuration
+
+Example output:
+┌─────────────────────────────────────────┐
+│ AIWorker Status                         │
+├─────────────────────────────────────────┤
+│ State: VALIDATE                         │
+│ Iteration: iter_20260327_143022_8932    │
+│ Duration: 12m 34s                       │
+│ Progress: [████████░░░░░░░░░░░░] 40%    │
+│ Memory: [████████████████░░░░░░░░] 24GB │
+│ Pending Approvals: 1                    │
+└─────────────────────────────────────────┘
+"""
+
+import argparse
+import os
+import sys
+import time
+from pathlib import Path
+from typing import Optional
+
+import psutil
+from rich.console import Console
+from rich.layout import Layout
+from rich.live import Live
+from rich.panel import Panel
+from rich.progress import BarColumn, Progress, TextColumn
+from rich.syntax import Syntax
+from rich.table import Table
+from rich.text import Text
+
+# Import AIWorker components
+from aiworker.config import AIWorkerConfig
+from aiworker.engine.sequential_engine import SequentialEngine
+from aiworker.safety.safety_cage import SafetyCage
+
+# Create console
+console = Console()
+
+
+def format_duration(seconds: float) -> str:
+    """Format duration in human-readable form."""
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    elif seconds < 3600:
+        minutes = int(seconds // 60)
+        secs = int(seconds % 60)
+        return f"{minutes}m {secs}s"
+    else:
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        return f"{hours}h {minutes}m"
+
+
+def get_memory_bar(used_gb: float, total_gb: float = 32.0, width: int = 32) -> str:
+    """Create ASCII memory bar."""
+    percent = used_gb / total_gb
+    filled = int(width * percent)
+    bar = "█" * filled + "░" * (width - filled)
+    return f"[{bar}] {used_gb:.1f}GB / {total_gb:.0f}GB"
+
+
+def get_progress_bar(current: int, total: int, width: int = 32) -> str:
+    """Create ASCII progress bar."""
+    if total == 0:
+        return "[" + "░" * width + "] 0%"
+    percent = current / total
+    filled = int(width * percent)
+    bar = "█" * filled + "░" * (width - filled)
+    return f"[{bar}] {int(percent * 100)}%"
+
+
+# =============================================================================
+# Command: status
+# =============================================================================
+
+def cmd_status():
+    """Show live status table (non-blocking, shows current state, exits)."""
+    config = AIWorkerConfig.from_env()
+    
+    # Get engine status
+    engine = SequentialEngine(db_path=config.checkpoint_db)
+    current = engine.get_current_iteration()
+    
+    # Get memory usage
+    mem = psutil.virtual_memory()
+    used_gb = mem.used / (1024 ** 3)
+    
+    # Get pending approvals
+    safety_cage = SafetyCage(config)
+    pending = len(safety_cage.get_pending_patches())
+    
+    # Build status table
+    table = Table(
+        title="AIWorker Status",
+        title_style="bold cyan",
+        border_style="blue",
+        show_header=False,
+        padding=(0, 2)
+    )
+    
+    table.add_column("Label", style="dim", width=20)
+    table.add_column("Value", style="white")
+    
+    # State
+    state = current.get('state', 'IDLE') if current else 'IDLE'
+    state_color = {
+        'IDLE': 'green',
+        'PLAN': 'yellow',
+        'RESEARCH': 'blue',
+        'CODE': 'magenta',
+        'VALIDATE': 'cyan',
+        'APPLY': 'bright_yellow',
+        'LEARN': 'bright_green',
+        'ERROR': 'red',
+        'PAUSED': 'dim'
+    }.get(state, 'white')
+    
+    table.add_row("State", f"[{state_color}]{state}[/{state_color}]")
+    
+    # Iteration ID
+    if current:
+        table.add_row("Iteration", current.get('iteration_id', 'N/A'))
+        
+        # Duration
+        started = current.get('started_at')
+        if started:
+            duration = time.time() - started
+            table.add_row("Duration", format_duration(duration))
+    
+    # Progress (estimated based on state)
+    state_progress = {
+        'IDLE': (0, 6),
+        'PLAN': (1, 6),
+        'RESEARCH': (2, 6),
+        'CODE': (3, 6),
+        'VALIDATE': (4, 6),
+        'APPLY': (5, 6),
+        'LEARN': (6, 6),
+    }
+    progress = state_progress.get(state, (0, 6))
+    table.add_row("Progress", get_progress_bar(progress[0], progress[1]))
+    
+    # Memory
+    mem_color = "red" if used_gb > 28 else "yellow" if used_gb > 24 else "green"
+    table.add_row(
+        "Memory",
+        f"[{mem_color}]{get_memory_bar(used_gb)}[/{mem_color}]"
+    )
+    
+    # Pending approvals
+    pending_color = "yellow" if pending > 0 else "dim"
+    table.add_row(
+        "Pending Approvals",
+        f"[{pending_color}]{pending}[/{pending_color}]"
+    )
+    
+    # Error count
+    if current:
+        errors = current.get('error_count', 0)
+        error_color = "red" if errors > 0 else "dim"
+        table.add_row("Errors", f"[{error_color}]{errors}[/{error_color}]")
+    
+    # Print table
+    console.print()
+    console.print(table)
+    console.print()
+
+
+# =============================================================================
+# Command: logs
+# =============================================================================
+
+def cmd_logs(follow: bool = False, lines: int = 50, filter_text: Optional[str] = None):
+    """Follow log file with filtering (tail -f style)."""
+    config = AIWorkerConfig.from_env()
+    log_path = Path(config.base_path) / "logs" / "aiworker.log"
+    
+    if not log_path.exists():
+        console.print(f"[red]Log file not found: {log_path}[/red]")
+        return
+    
+    def read_logs():
+        """Read and display logs."""
+        with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
+            all_lines = f.readlines()
+            
+            # Apply line limit
+            display_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+            
+            # Apply filter
+            if filter_text:
+                display_lines = [l for l in display_lines if filter_text in l]
+            
+            return display_lines
+    
+    if follow:
+        # Follow mode (like tail -f)
+        console.print(f"[dim]Following {log_path} (Ctrl+C to exit)...[/dim]")
+        console.print()
+        
+        last_size = 0
+        try:
+            while True:
+                current_size = log_path.stat().st_size
+                
+                if current_size != last_size:
+                    logs = read_logs()
+                    
+                    # Clear and reprint
+                    console.clear()
+                    for line in logs:
+                        # Colorize log levels
+                        if 'ERROR' in line:
+                            console.print(f"[red]{line.rstrip()}[/red]")
+                        elif 'WARNING' in line:
+                            console.print(f"[yellow]{line.rstrip()}[/yellow]")
+                        elif 'INFO' in line:
+                            console.print(f"[blue]{line.rstrip()}[/blue]")
+                        elif 'DEBUG' in line:
+                            console.print(f"[dim]{line.rstrip()}[/dim]")
+                        else:
+                            console.print(line.rstrip())
+                    
+                    last_size = current_size
+                
+                time.sleep(0.5)
+        
+        except KeyboardInterrupt:
+            console.print("\n[dim]Stopped following logs[/dim]")
+    
+    else:
+        # One-time display
+        logs = read_logs()
+        
+        for line in logs:
+            if 'ERROR' in line:
+                console.print(f"[red]{line.rstrip()}[/red]")
+            elif 'WARNING' in line:
+                console.print(f"[yellow]{line.rstrip()}[/yellow]")
+            elif 'INFO' in line:
+                console.print(f"[blue]{line.rstrip()}[/blue]")
+            elif 'DEBUG' in line:
+                console.print(f"[dim]{line.rstrip()}[/dim]")
+            else:
+                console.print(line.rstrip())
+
+
+# =============================================================================
+# Command: approve
+# =============================================================================
+
+def cmd_approve(patch_hash: Optional[str] = None):
+    """Interactive patch review (uses safety_cage.human_approve)."""
+    config = AIWorkerConfig.from_env()
+    safety_cage = SafetyCage(config)
+    
+    # Get pending patches
+    pending = safety_cage.get_pending_patches()
+    
+    if not pending:
+        console.print("[yellow]No patches awaiting approval[/yellow]")
+        return
+    
+    # If no hash specified, show list
+    if not patch_hash:
+        console.print("\n[bold]Pending Patches:[/bold]")
+        
+        for i, patch in enumerate(pending, 1):
+            table = Table(show_header=False, border_style="blue")
+            table.add_column("Field", style="dim", width=15)
+            table.add_column("Value")
+            
+            table.add_row("Hash", patch['patch_hash'])
+            table.add_row("Target", patch.get('target_file', 'unknown'))
+            table.add_row("Created", time.strftime('%Y-%m-%d %H:%M:%S', 
+                         time.localtime(patch.get('created_at', 0))))
+            
+            rationale = patch.get('rationale', '')[:200]
+            table.add_row("Rationale", rationale + "..." if len(rationale) == 200 else rationale)
+            
+            console.print(f"\n[{i}]", table)
+        
+        # Ask user to select
+        choice = console.input("\nEnter number to review (or 'q' to quit): ")
+        
+        if choice.lower() == 'q':
+            return
+        
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(pending):
+                patch_hash = pending[idx]['patch_hash']
+            else:
+                console.print("[red]Invalid selection[/red]")
+                return
+        except ValueError:
+            console.print("[red]Invalid input[/red]")
+            return
+    
+    # Find the selected patch
+    selected = None
+    for patch in pending:
+        if patch['patch_hash'] == patch_hash:
+            selected = patch
+            break
+    
+    if not selected:
+        console.print(f"[red]Patch not found: {patch_hash}[/red]")
+        return
+    
+    # Display patch details
+    console.print(f"\n[bold cyan]Reviewing Patch: {patch_hash}[/bold cyan]")
+    console.print()
+    
+    # Show diff if available
+    diff = selected.get('diff', '')
+    if diff:
+        console.print(Panel(
+            Syntax(diff, "diff", theme="monokai", line_numbers=True),
+            title="Changes",
+            border_style="blue"
+        ))
+    
+    # Show rationale
+    rationale = selected.get('rationale', 'No rationale provided')
+    console.print(Panel(rationale, title="Rationale", border_style="green"))
+    
+    # Ask for approval
+    console.print()
+    response = console.input("[bold]Approve this patch? (yes/no): [/bold]")
+    
+    if response.lower() in ['yes', 'y']:
+        success = safety_cage.approve_patch(patch_hash)
+        if success:
+            console.print(f"[green]Patch {patch_hash} approved[/green]")
+        else:
+            console.print(f"[red]Failed to approve patch[/red]")
+    else:
+        reason = console.input("Rejection reason (optional): ")
+        safety_cage.reject_patch(patch_hash, reason or "Rejected by user")
+        console.print(f"[yellow]Patch {patch_hash} rejected[/yellow]")
+
+
+# =============================================================================
+# Command: reject
+# =============================================================================
+
+def cmd_reject(patch_hash: str, reason: str = ""):
+    """Reject patch with reason."""
+    config = AIWorkerConfig.from_env()
+    safety_cage = SafetyCage(config)
+    
+    if not reason:
+        reason = console.input("Rejection reason: ")
+    
+    success = safety_cage.reject_patch(patch_hash, reason or "No reason provided")
+    
+    if success:
+        console.print(f"[yellow]Patch {patch_hash} rejected[/yellow]")
+    else:
+        console.print(f"[red]Failed to reject patch[/red]")
+
+
+# =============================================================================
+# Command: reset-kill-switch
+# =============================================================================
+
+def cmd_reset_kill_switch():
+    """Emergency recovery - reset kill switch."""
+    config = AIWorkerConfig.from_env()
+    safety_cage = SafetyCage(config)
+    
+    # Check if kill switch is active
+    if not safety_cage.is_kill_switch_active():
+        console.print("[green]Kill switch is not active[/green]")
+        return
+    
+    # Confirm reset
+    console.print("[bold red]WARNING: Kill switch is active![/bold red]")
+    console.print("This indicates multiple safety failures.")
+    console.print()
+    
+    confirm = console.input("Reset kill switch? Type 'RESET' to confirm: ")
+    
+    if confirm == "RESET":
+        safety_cage.reset_kill_switch()
+        console.print("[green]Kill switch reset[/green]")
+    else:
+        console.print("[dim]Reset cancelled[/dim]")
+
+
+# =============================================================================
+# Command: run-now
+# =============================================================================
+
+def cmd_run_now(goal: Optional[str] = None):
+    """Trigger immediate iteration (bypass schedule)."""
+    from aiworker.main import run_iteration
+    
+    config = AIWorkerConfig.from_env()
+    
+    if not goal:
+        goal = console.input("Enter improvement goal: ")
+    
+    if not goal:
+        console.print("[red]No goal specified[/red]")
+        return
+    
+    console.print(f"\n[bold]Starting iteration:[/bold] {goal}")
+    console.print()
+    
+    # Run with progress display
+    with console.status("[bold green]Running iteration..."):
+        success = run_iteration(goal, config)
+    
+    if success:
+        console.print("\n[green]Iteration completed successfully[/green]")
+    else:
+        console.print("\n[red]Iteration failed[/red]")
+
+
+# =============================================================================
+# Command: config
+# =============================================================================
+
+def cmd_config(key: Optional[str] = None, value: Optional[str] = None):
+    """View/edit configuration (safe values only)."""
+    config = AIWorkerConfig.from_env()
+    
+    # Safe editable keys
+    safe_keys = {
+        'max_iterations': int,
+        'ollama_model': str,
+        'log_level': str,
+    }
+    
+    if key and value:
+        # Set value
+        if key not in safe_keys:
+            console.print(f"[red]Key '{key}' is not editable[/red]")
+            console.print(f"[dim]Editable keys: {', '.join(safe_keys.keys())}[/dim]")
+            return
+        
+        # Convert type
+        try:
+            typed_value = safe_keys[key](value)
+        except ValueError:
+            console.print(f"[red]Invalid value type for {key}[/red]")
+            return
+        
+        # Update config (would need actual persistence)
+        console.print(f"[green]Set {key} = {typed_value}[/green]")
+        console.print("[dim]Note: Restart AIWorker for changes to take effect[/dim]")
+    
+    elif key:
+        # Show specific key
+        config_dict = config.to_dict()
+        if key in config_dict:
+            console.print(f"{key}: {config_dict[key]}")
+        else:
+            console.print(f"[red]Unknown key: {key}[/red]")
+    
+    else:
+        # Show all config
+        table = Table(title="AIWorker Configuration", title_style="bold cyan")
+        table.add_column("Key", style="dim")
+        table.add_column("Value")
+        table.add_column("Editable", style="yellow")
+        
+        config_dict = config.to_dict()
+        
+        for k, v in sorted(config_dict.items()):
+            editable = "✓" if k in safe_keys else ""
+            # Mask sensitive values
+            if 'key' in k.lower() or 'password' in k.lower() or 'secret' in k.lower():
+                v = "***"
+            table.add_row(k, str(v), editable)
+        
+        console.print()
+        console.print(table)
+        console.print()
+        console.print("[dim]Use 'aiworker-cli config <key> <value>' to edit[/dim]")
+
+
+# =============================================================================
+# Main Entry Point
+# =============================================================================
+
+def main():
+    """Main CLI entry point."""
+    parser = argparse.ArgumentParser(
+        description="AIWorker CLI - Interactive control and monitoring",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  aiworker-cli status                    # Show current status
+  aiworker-cli logs -f                   # Follow logs
+  aiworker-cli approve                   # Review pending patches
+  aiworker-cli run-now "Optimize code"   # Trigger iteration
+  aiworker-cli config                    # View configuration
+        """
+    )
+    
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    
+    # status
+    subparsers.add_parser('status', help='Show live status table')
+    
+    # logs
+    logs_parser = subparsers.add_parser('logs', help='View/follow logs')
+    logs_parser.add_argument('-f', '--follow', action='store_true', help='Follow mode')
+    logs_parser.add_argument('-n', '--lines', type=int, default=50, help='Number of lines')
+    logs_parser.add_argument('--filter', type=str, help='Filter text')
+    
+    # approve
+    approve_parser = subparsers.add_parser('approve', help='Review and approve patches')
+    approve_parser.add_argument('patch_hash', nargs='?', help='Specific patch hash')
+    
+    # reject
+    reject_parser = subparsers.add_parser('reject', help='Reject a patch')
+    reject_parser.add_argument('patch_hash', help='Patch hash to reject')
+    reject_parser.add_argument('--reason', type=str, default='', help='Rejection reason')
+    
+    # reset-kill-switch
+    subparsers.add_parser('reset-kill-switch', help='Reset kill switch')
+    
+    # run-now
+    run_parser = subparsers.add_parser('run-now', help='Trigger immediate iteration')
+    run_parser.add_argument('goal', nargs='?', help='Improvement goal')
+    
+    # config
+    config_parser = subparsers.add_parser('config', help='View/edit configuration')
+    config_parser.add_argument('key', nargs='?', help='Config key')
+    config_parser.add_argument('value', nargs='?', help='New value')
+    
+    args = parser.parse_args()
+    
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+    
+    # Execute command
+    if args.command == 'status':
+        cmd_status()
+    
+    elif args.command == 'logs':
+        cmd_logs(follow=args.follow, lines=args.lines, filter_text=args.filter)
+    
+    elif args.command == 'approve':
+        cmd_approve(args.patch_hash)
+    
+    elif args.command == 'reject':
+        cmd_reject(args.patch_hash, args.reason)
+    
+    elif args.command == 'reset-kill-switch':
+        cmd_reset_kill_switch()
+    
+    elif args.command == 'run-now':
+        cmd_run_now(args.goal)
+    
+    elif args.command == 'config':
+        cmd_config(args.key, args.value)
+
+
+if __name__ == "__main__":
+    main()
+

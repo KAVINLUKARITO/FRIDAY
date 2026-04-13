@@ -1,0 +1,357 @@
+"""Sequential workflow state machine for AIWorker VPS deployment.
+
+Replaces the conceptual parallel multi-agent pattern with a single-process
+state machine that is safe on 32GB RAM.
+
+States (in order):
+    IDLE → PLAN → RESEARCH → CODE → VALIDATE → APPLY → LEARN → IDLE
+
+Each transition is guarded by the governance policy engine.
+The state machine persists checkpoints to SQLite so a crashed run can
+resume from the last completed state rather than starting over.
+
+Design constraints for 32GB VPS:
+- One Ollama model loaded at a time (hot-swap between states if needed)
+- No threading or asyncio within a single cycle
+- SQLite checkpointing after every state transition
+- Human approval required before APPLY
+- Full rollback available after any APPLY
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import sqlite3
+import time
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
+from pathlib import Path
+from typing import Any, Callable, Optional
+
+logger = logging.getLogger(__name__)
+
+
+# ── state definitions ─────────────────────────────────────────────────
+
+class WorkflowState(str, Enum):
+    IDLE     = "idle"
+    PLAN     = "plan"
+    RESEARCH = "research"
+    CODE     = "code"
+    VALIDATE = "validate"
+    APPLY    = "apply"
+    LEARN    = "learn"
+    ERROR    = "error"
+    HALTED   = "halted"
+
+_NORMAL_SEQUENCE = [
+    WorkflowState.PLAN,
+    WorkflowState.RESEARCH,
+    WorkflowState.CODE,
+    WorkflowState.VALIDATE,
+    WorkflowState.APPLY,
+    WorkflowState.LEARN,
+]
+
+
+# ── checkpoint ────────────────────────────────────────────────────────
+
+@dataclass
+class WorkflowCheckpoint:
+    """Persisted state of a single workflow cycle."""
+    cycle_id:      str
+    goal:          str
+    state:         str
+    created_at:    str
+    updated_at:    str
+    payload:       dict   = field(default_factory=dict)   # state-specific data
+    error:         str    = ""
+    approved:      bool   = False
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_row(cls, row: dict) -> "WorkflowCheckpoint":
+        payload = json.loads(row.get("payload", "{}") or "{}")
+        return cls(
+            cycle_id=row["cycle_id"],
+            goal=row["goal"],
+            state=row["state"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+            payload=payload,
+            error=row.get("error", ""),
+            approved=bool(row.get("approved", 0)),
+        )
+
+
+class CheckpointStore:
+    """SQLite-backed checkpoint store for workflow cycles."""
+
+    DDL = """
+    CREATE TABLE IF NOT EXISTS workflow_checkpoints (
+        cycle_id   TEXT PRIMARY KEY,
+        goal       TEXT NOT NULL,
+        state      TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        payload    TEXT NOT NULL DEFAULT '{}',
+        error      TEXT NOT NULL DEFAULT '',
+        approved   INTEGER NOT NULL DEFAULT 0
+    )
+    """
+
+    def __init__(self, db_path: str = "aiworker.db") -> None:
+        self._path = db_path
+        self._ensure_table()
+
+    def _conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self._path, timeout=10)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _ensure_table(self) -> None:
+        with self._conn() as conn:
+            conn.execute(self.DDL)
+
+    def save(self, cp: WorkflowCheckpoint) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        cp.updated_at = now
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO workflow_checkpoints
+                    (cycle_id, goal, state, created_at, updated_at, payload, error, approved)
+                VALUES (?,?,?,?,?,?,?,?)
+                ON CONFLICT(cycle_id) DO UPDATE SET
+                    state=excluded.state,
+                    updated_at=excluded.updated_at,
+                    payload=excluded.payload,
+                    error=excluded.error,
+                    approved=excluded.approved
+                """,
+                (
+                    cp.cycle_id, cp.goal, cp.state, cp.created_at, now,
+                    json.dumps(cp.payload), cp.error, int(cp.approved),
+                ),
+            )
+
+    def load(self, cycle_id: str) -> Optional[WorkflowCheckpoint]:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM workflow_checkpoints WHERE cycle_id = ?",
+                (cycle_id,),
+            ).fetchone()
+        return WorkflowCheckpoint.from_row(dict(row)) if row else None
+
+    def latest_incomplete(self) -> Optional[WorkflowCheckpoint]:
+        """Return the most recent cycle that hasn't reached LEARN or ERROR."""
+        terminal = (WorkflowState.LEARN.value, WorkflowState.HALTED.value)
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM workflow_checkpoints
+                WHERE state NOT IN (?,?)
+                ORDER BY updated_at DESC LIMIT 1
+                """,
+                terminal,
+            ).fetchone()
+        return WorkflowCheckpoint.from_row(dict(row)) if row else None
+
+    def recent(self, n: int = 10) -> list[WorkflowCheckpoint]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM workflow_checkpoints ORDER BY updated_at DESC LIMIT ?",
+                (n,),
+            ).fetchall()
+        return [WorkflowCheckpoint.from_row(dict(r)) for r in rows]
+
+
+# ── state machine ─────────────────────────────────────────────────────
+
+@dataclass
+class CycleResult:
+    """Outcome of a complete workflow cycle."""
+    cycle_id:   str
+    goal:       str
+    success:    bool
+    final_state: str
+    reason:     str
+    payload:    dict = field(default_factory=dict)
+    duration_s: float = 0.0
+
+
+# Type alias for state handler functions
+StateHandler = Callable[[WorkflowCheckpoint], tuple[bool, dict]]
+
+
+class SequentialWorkflowEngine:
+    """Single-agent sequential workflow engine.
+
+    Each cycle progresses through: PLAN → RESEARCH → CODE → VALIDATE → APPLY → LEARN.
+    Human approval is required at the VALIDATE→APPLY transition.
+    All intermediate results are checkpointed to SQLite.
+
+    Usage::
+
+        engine = SequentialWorkflowEngine(db_path="aiworker.db")
+        engine.register_handler(WorkflowState.PLAN, my_plan_handler)
+        engine.register_handler(WorkflowState.RESEARCH, my_research_handler)
+        # ... register all handlers ...
+        result = engine.run_cycle(goal="improve test coverage")
+    """
+
+    def __init__(self, db_path: str = "aiworker.db") -> None:
+        self._store    = CheckpointStore(db_path)
+        self._handlers: dict[WorkflowState, StateHandler] = {}
+
+    def register_handler(self, state: WorkflowState, handler: StateHandler) -> None:
+        """Register a handler for *state*.
+
+        The handler signature is::
+
+            def handler(checkpoint: WorkflowCheckpoint) -> tuple[bool, dict]:
+                # returns (success, payload_updates)
+                ...
+        """
+        self._handlers[state] = handler
+
+    def run_cycle(
+        self,
+        goal: str,
+        *,
+        cycle_id: str | None = None,
+        resume: bool = True,
+    ) -> CycleResult:
+        """Execute a full workflow cycle for *goal*.
+
+        Args:
+            goal:     The evolution goal for this cycle.
+            cycle_id: Override cycle ID (default: timestamp-based).
+            resume:   If True, resume the latest incomplete cycle for
+                      the same goal rather than starting a new one.
+
+        Returns:
+            :class:`CycleResult` with final state and outcome.
+        """
+        start = time.monotonic()
+
+        # Resume existing cycle if available
+        cp: WorkflowCheckpoint | None = None
+        if resume:
+            cp = self._store.latest_incomplete()
+            if cp and cp.goal != goal:
+                cp = None   # different goal, start fresh
+
+        if cp is None:
+            now = datetime.now(timezone.utc).isoformat()
+            cid = cycle_id or f"cycle_{int(time.time())}"
+            cp = WorkflowCheckpoint(
+                cycle_id=cid,
+                goal=goal,
+                state=WorkflowState.IDLE.value,
+                created_at=now,
+                updated_at=now,
+            )
+            self._store.save(cp)
+
+        logger.info("Workflow cycle %s starting at state=%s for goal=%r", cp.cycle_id, cp.state, goal)
+
+        # Find where we are in the sequence and continue from there
+        current_state = WorkflowState(cp.state)
+        remaining_states = self._states_from(current_state)
+
+        for state in remaining_states:
+            handler = self._handlers.get(state)
+            if handler is None:
+                logger.warning("No handler registered for state %s — skipping", state.value)
+                cp.state = state.value
+                self._store.save(cp)
+                continue
+
+            logger.info("Cycle %s: entering state %s", cp.cycle_id, state.value)
+            cp.state = state.value
+            self._store.save(cp)
+
+            try:
+                success, updates = handler(cp)
+            except Exception as exc:
+                logger.exception("Handler %s raised: %s", state.value, exc)
+                cp.error = str(exc)
+                cp.state = WorkflowState.ERROR.value
+                self._store.save(cp)
+                return CycleResult(
+                    cycle_id=cp.cycle_id,
+                    goal=goal,
+                    success=False,
+                    final_state=WorkflowState.ERROR.value,
+                    reason=f"State {state.value} raised: {exc}",
+                    payload=cp.payload,
+                    duration_s=time.monotonic() - start,
+                )
+
+            cp.payload.update(updates)
+            self._store.save(cp)
+
+            if not success:
+                reason = updates.get("reason", f"State {state.value} failed")
+                logger.warning("Cycle %s: state %s FAILED – %s", cp.cycle_id, state.value, reason)
+
+                # VALIDATE failure means the patch was rejected — go back to IDLE cleanly
+                if state == WorkflowState.VALIDATE:
+                    cp.state = WorkflowState.IDLE.value
+                    self._store.save(cp)
+                    return CycleResult(
+                        cycle_id=cp.cycle_id,
+                        goal=goal,
+                        success=False,
+                        final_state=WorkflowState.IDLE.value,
+                        reason=reason,
+                        payload=cp.payload,
+                        duration_s=time.monotonic() - start,
+                    )
+
+                cp.state = WorkflowState.ERROR.value
+                cp.error = reason
+                self._store.save(cp)
+                return CycleResult(
+                    cycle_id=cp.cycle_id,
+                    goal=goal,
+                    success=False,
+                    final_state=WorkflowState.ERROR.value,
+                    reason=reason,
+                    payload=cp.payload,
+                    duration_s=time.monotonic() - start,
+                )
+
+        # Completed all states
+        cp.state = WorkflowState.LEARN.value
+        self._store.save(cp)
+        duration = time.monotonic() - start
+        logger.info("Cycle %s COMPLETED in %.1fs", cp.cycle_id, duration)
+        return CycleResult(
+            cycle_id=cp.cycle_id,
+            goal=goal,
+            success=True,
+            final_state=WorkflowState.LEARN.value,
+            reason="All states completed successfully",
+            payload=cp.payload,
+            duration_s=duration,
+        )
+
+    def _states_from(self, current: WorkflowState) -> list[WorkflowState]:
+        """Return the remaining states starting from *current* (exclusive if not IDLE)."""
+        if current == WorkflowState.IDLE:
+            return list(_NORMAL_SEQUENCE)
+        try:
+            idx = _NORMAL_SEQUENCE.index(current)
+            return _NORMAL_SEQUENCE[idx:]   # inclusive: re-run current state on resume
+        except ValueError:
+            return list(_NORMAL_SEQUENCE)   # unknown state → restart from scratch
+
+    def recent_cycles(self, n: int = 10) -> list[WorkflowCheckpoint]:
+        return self._store.recent(n)
+

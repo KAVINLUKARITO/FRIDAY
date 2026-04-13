@@ -1,0 +1,470 @@
+"""Three-Tier Safety Cage for AIWorker self-modification.
+
+This module implements the safety requirements for the 32GB VPS deployment:
+
+    Tier 1 — Static Analysis (automatic, always runs)
+        AST-based checks: no exec/eval, no os.system, no __import__,
+        no deletion of critical files, no network calls in patches.
+        Optional: semgrep integration when available.
+
+    Tier 2 — Human Approval Gate (interactive)
+        Presents the unified diff to the operator and blocks until
+        explicit 'yes' is typed.  Never auto-approves.
+        In non-TTY mode (CI/cron), always denies.
+
+    Tier 3 — Kill Switch (anomaly circuit-breaker)
+        Tracks consecutive failures and patch-size anomalies.
+        Trips a hard stop when thresholds are exceeded.
+        Reset requires manual ``safety_cage.reset_kill_switch()``.
+
+Usage::
+
+    from aiworker.safety.safety_cage import SafetyCage, SafetyVerdict
+
+    cage = SafetyCage()
+    verdict = cage.evaluate(patch_text, target_files=["aiworker/scoring/calculator.py"])
+
+    if verdict.approved:
+        apply_patch(patch_text)
+    else:
+        print(verdict.reason)
+"""
+
+from __future__ import annotations
+
+import ast
+import logging
+import subprocess
+import sys
+import textwrap
+import threading
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Sequence
+
+logger = logging.getLogger(__name__)
+
+# ── constants ─────────────────────────────────────────────────────────
+_FORBIDDEN_NODES = frozenset({
+    "Exec", "exec",        # exec() calls
+})
+
+# AST node types that are always dangerous
+_FORBIDDEN_CALL_NAMES = frozenset({
+    "exec", "eval", "__import__", "compile",
+    "system",     # os.system
+    "popen",      # os.popen / subprocess.Popen with shell=True equivalent
+})
+
+# Attribute accesses that are always dangerous
+_FORBIDDEN_ATTRS = frozenset({
+    "system", "popen", "getenv_write",
+})
+
+# Files that must NEVER be modified by any patch
+_IMMUTABLE_FILES = frozenset({
+    "aiworker/governance/",
+    "aiworker/safety/",
+    "aiworker/config.py",
+    "pytest.ini",
+    ".gitignore",
+    "aiworker/tests/",
+})
+
+# Kill-switch thresholds
+_MAX_CONSECUTIVE_FAILURES  = 5
+_MAX_PATCH_LINES           = 300   # patches larger than this are anomalous
+
+# ── data classes ──────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class SafetyVerdict:
+    """Immutable result from :class:`SafetyCage`.
+
+    Attributes:
+        approved:          True only when all three tiers passed.
+        tier_1_passed:     Static analysis result.
+        tier_2_passed:     Human approval result.
+        tier_3_passed:     Kill-switch status.
+        reason:            Human-readable explanation.
+        tier_1_errors:     List of static analysis findings.
+    """
+    approved:       bool
+    tier_1_passed:  bool
+    tier_2_passed:  bool
+    tier_3_passed:  bool
+    reason:         str
+    tier_1_errors:  tuple[str, ...] = field(default_factory=tuple)
+
+    def to_dict(self) -> dict:
+        return {
+            "approved":      self.approved,
+            "tier_1_passed": self.tier_1_passed,
+            "tier_2_passed": self.tier_2_passed,
+            "tier_3_passed": self.tier_3_passed,
+            "reason":        self.reason,
+            "tier_1_errors": list(self.tier_1_errors),
+        }
+
+
+# ── Tier 1: Static Analysis ───────────────────────────────────────────
+
+def _ast_check_snippet(source: str) -> list[str]:
+    """Run AST checks on a Python source snippet.  Return list of errors."""
+    errors: list[str] = []
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as exc:
+        return [f"SyntaxError: {exc}"]
+
+    for node in ast.walk(tree):
+        # Dangerous function calls: exec(), eval(), __import__()
+        if isinstance(node, ast.Call):
+            func = node.func
+            name = ""
+            if isinstance(func, ast.Name):
+                name = func.id
+            elif isinstance(func, ast.Attribute):
+                name = func.attr
+            if name in _FORBIDDEN_CALL_NAMES:
+                errors.append(f"Forbidden call: {name}() at line {getattr(node, 'lineno', '?')}")
+
+        # Direct attribute access of dangerous names
+        if isinstance(node, ast.Attribute) and node.attr in _FORBIDDEN_ATTRS:
+            errors.append(f"Suspicious attribute: .{node.attr} at line {getattr(node, 'lineno', '?')}")
+
+    return errors
+
+
+def _extract_python_from_diff(diff_text: str) -> list[tuple[str, str]]:
+    """Extract (filename, added_lines_source) pairs from a unified diff."""
+    results: list[tuple[str, str]] = []
+    current_file: str | None = None
+    added_lines:  list[str]   = []
+
+    for line in diff_text.splitlines():
+        if line.startswith("+++ b/") or line.startswith("+++ "):
+            # flush previous file
+            if current_file and added_lines:
+                results.append((current_file, "\n".join(added_lines)))
+            current_file = line[6:].strip() if line.startswith("+++ b/") else line[4:].strip()
+            added_lines = []
+        elif line.startswith("+") and not line.startswith("+++"):
+            added_lines.append(line[1:])   # strip the leading '+'
+
+    if current_file and added_lines:
+        results.append((current_file, "\n".join(added_lines)))
+
+    return [(f, s) for f, s in results if f.endswith(".py")]
+
+
+def _check_immutable_files(diff_text: str) -> list[str]:
+    """Return errors for any diff that touches immutable paths."""
+    errors: list[str] = []
+    for line in diff_text.splitlines():
+        if not (line.startswith("+++ ") or line.startswith("--- ")):
+            continue
+        path = line[4:].strip().lstrip("ab/")
+        for immutable in _IMMUTABLE_FILES:
+            if path.startswith(immutable) or path == immutable.rstrip("/"):
+                errors.append(f"Attempt to modify immutable path: {path}")
+    return errors
+
+
+def _check_patch_size(diff_text: str) -> list[str]:
+    """Warn if patch is anomalously large."""
+    added = sum(1 for ln in diff_text.splitlines() if ln.startswith("+") and not ln.startswith("+++"))
+    if added > _MAX_PATCH_LINES:
+        return [f"Patch too large: {added} added lines (max {_MAX_PATCH_LINES})"]
+    return []
+
+
+def _run_semgrep(diff_text: str, workspace_path: str) -> list[str]:
+    """Run semgrep if available.  Silent no-op if not installed."""
+    try:
+        result = subprocess.run(
+            ["semgrep", "--config=auto", "--json", "--quiet", "--stdin", "--lang=python"],
+            input=diff_text,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode not in (0, 1):   # 1 = findings, 0 = clean
+            return []
+        import json
+        data = json.loads(result.stdout or "{}")
+        findings = data.get("results", [])
+        return [
+            f"semgrep [{f.get('check_id','')}] {f.get('path','')}:{f.get('start',{}).get('line','?')}"
+            for f in findings
+        ]
+    except FileNotFoundError:
+        logger.debug("semgrep not installed – skipping")
+        return []
+    except Exception as exc:
+        logger.debug("semgrep error: %s", exc)
+        return []
+
+
+def tier1_static_analysis(diff_text: str, workspace_path: str = ".") -> tuple[bool, list[str]]:
+    """Run all Tier 1 checks.
+
+    Returns:
+        (passed: bool, errors: list[str])
+    """
+    errors: list[str] = []
+
+    # 1a — immutable file guard
+    errors.extend(_check_immutable_files(diff_text))
+
+    # 1b — patch size anomaly
+    errors.extend(_check_patch_size(diff_text))
+
+    # 1c — AST analysis of added Python lines
+    for filename, source in _extract_python_from_diff(diff_text):
+        ast_errors = _ast_check_snippet(source)
+        for err in ast_errors:
+            errors.append(f"{filename}: {err}")
+
+    # 1d — semgrep (optional, no-op if absent)
+    errors.extend(_run_semgrep(diff_text, workspace_path))
+
+    return len(errors) == 0, errors
+
+
+# ── Tier 2: Human Approval Gate ───────────────────────────────────────
+
+def _display_diff(diff_text: str, target_files: Sequence[str]) -> None:
+    """Print the diff with a summary header."""
+    added   = sum(1 for ln in diff_text.splitlines() if ln.startswith("+") and not ln.startswith("+++"))
+    removed = sum(1 for ln in diff_text.splitlines() if ln.startswith("-") and not ln.startswith("---"))
+    print("\n" + "═" * 70)
+    print("  AIWorker Safety Cage — TIER 2: HUMAN APPROVAL REQUIRED")
+    print("═" * 70)
+    print(f"  Target files : {', '.join(target_files) or '(from diff)'}")
+    print(f"  Changes      : +{added} lines / -{removed} lines")
+    print("─" * 70)
+    # Show first 200 lines of diff; truncate with notice if longer
+    lines = diff_text.splitlines()
+    if len(lines) > 200:
+        print("\n".join(lines[:200]))
+        print(f"\n... [{len(lines) - 200} more lines truncated] ...")
+    else:
+        print(diff_text)
+    print("─" * 70)
+
+
+def tier2_human_approval(
+    diff_text: str,
+    target_files: Sequence[str] = (),
+    *,
+    interactive: bool | None = None,
+) -> tuple[bool, str]:
+    """Present the diff and wait for human approval.
+
+    Args:
+        diff_text:    The unified diff to review.
+        target_files: Files being modified (for display only).
+        interactive:  Force interactive/non-interactive mode.
+                      Auto-detected from sys.stdin.isatty() when None.
+
+    Returns:
+        (approved: bool, reason: str)
+    """
+    is_tty = sys.stdin.isatty() if interactive is None else interactive
+
+    _display_diff(diff_text, target_files)
+
+    if not is_tty:
+        reason = "Tier 2 denied: non-interactive environment (no TTY). Operator review required."
+        print(f"\n  ✗ {reason}")
+        print("═" * 70 + "\n")
+        logger.warning("Tier 2: auto-denied (non-TTY)")
+        return False, reason
+
+    print("\n  Type 'yes' to APPROVE and apply this patch.")
+    print("  Any other input will REJECT it.\n")
+    try:
+        answer = input("  Your decision [yes/NO]: ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        answer = ""
+
+    if answer == "yes":
+        print("  ✓ Patch APPROVED by operator.\n" + "═" * 70 + "\n")
+        logger.info("Tier 2: patch approved by operator")
+        return True, "Operator approved"
+    else:
+        reason = f"Operator rejected patch (input: {answer!r})"
+        print(f"  ✗ Patch REJECTED.\n" + "═" * 70 + "\n")
+        logger.info("Tier 2: patch rejected by operator (%r)", answer)
+        return False, reason
+
+
+# ── Tier 3: Kill Switch ───────────────────────────────────────────────
+
+class _KillSwitch:
+    """Thread-safe anomaly circuit breaker."""
+
+    def __init__(self) -> None:
+        self._lock                  = threading.RLock()
+        self._consecutive_failures  = 0
+        self._tripped               = False
+        self._trip_reason           = ""
+
+    def record_failure(self) -> None:
+        with self._lock:
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= _MAX_CONSECUTIVE_FAILURES:
+                self._tripped = True
+                self._trip_reason = (
+                    f"Kill switch tripped: {self._consecutive_failures} "
+                    f"consecutive patch failures (threshold={_MAX_CONSECUTIVE_FAILURES})"
+                )
+                logger.critical("KILL SWITCH TRIPPED: %s", self._trip_reason)
+
+    def record_success(self) -> None:
+        with self._lock:
+            self._consecutive_failures = 0
+
+    def is_tripped(self) -> bool:
+        with self._lock:
+            return self._tripped
+
+    def trip_reason(self) -> str:
+        with self._lock:
+            return self._trip_reason
+
+    def reset(self) -> None:
+        with self._lock:
+            self._tripped              = False
+            self._consecutive_failures = 0
+            self._trip_reason          = ""
+        logger.info("Kill switch reset by operator")
+
+    def status(self) -> dict:
+        with self._lock:
+            return {
+                "tripped":              self._tripped,
+                "consecutive_failures": self._consecutive_failures,
+                "threshold":            _MAX_CONSECUTIVE_FAILURES,
+                "trip_reason":          self._trip_reason,
+            }
+
+
+# ── Public SafetyCage facade ──────────────────────────────────────────
+
+class SafetyCage:
+    """Three-tier safety cage for AIWorker self-modification.
+
+    Tier 1 (static analysis) and Tier 3 (kill switch) are always
+    evaluated automatically.  Tier 2 (human approval) is invoked only
+    when Tiers 1 and 3 pass — there is no point asking for human
+    approval on a statically-invalid patch.
+
+    Instantiate once and keep as a module-level singleton::
+
+        safety_cage = SafetyCage()
+
+    Then in the self-modification loop::
+
+        verdict = safety_cage.evaluate(patch_text, target_files)
+        if verdict.approved:
+            ...apply patch...
+            safety_cage.record_success()
+        else:
+            safety_cage.record_failure()
+    """
+
+    def __init__(self, workspace_path: str = ".") -> None:
+        self._workspace = workspace_path
+        self._kill      = _KillSwitch()
+
+    # ── evaluation ────────────────────────────────────────────────
+
+    def evaluate(
+        self,
+        diff_text: str,
+        target_files: Sequence[str] = (),
+        *,
+        interactive: bool | None = None,
+    ) -> SafetyVerdict:
+        """Run all three tiers and return an immutable verdict.
+
+        Args:
+            diff_text:    Unified diff to evaluate.
+            target_files: Claimed target files (for display and logging).
+            interactive:  Override TTY detection for Tier 2.
+
+        Returns:
+            :class:`SafetyVerdict` – check ``.approved`` before applying.
+        """
+        # ── Tier 3 first: if kill switch is tripped, reject immediately ──
+        if self._kill.is_tripped():
+            reason = f"Tier 3 (kill switch): {self._kill.trip_reason()}"
+            return SafetyVerdict(
+                approved=False,
+                tier_1_passed=False,
+                tier_2_passed=False,
+                tier_3_passed=False,
+                reason=reason,
+            )
+
+        # ── Tier 1: Static analysis ───────────────────────────────────
+        t1_passed, t1_errors = tier1_static_analysis(diff_text, self._workspace)
+        if not t1_passed:
+            reason = "Tier 1 (static analysis) FAILED: " + "; ".join(t1_errors[:5])
+            logger.warning("Safety cage Tier 1 failed: %s", reason)
+            return SafetyVerdict(
+                approved=False,
+                tier_1_passed=False,
+                tier_2_passed=False,
+                tier_3_passed=True,
+                reason=reason,
+                tier_1_errors=tuple(t1_errors),
+            )
+
+        # ── Tier 2: Human approval ────────────────────────────────────
+        t2_passed, t2_reason = tier2_human_approval(
+            diff_text, target_files, interactive=interactive
+        )
+        if not t2_passed:
+            return SafetyVerdict(
+                approved=False,
+                tier_1_passed=True,
+                tier_2_passed=False,
+                tier_3_passed=True,
+                reason=f"Tier 2 (human approval) DENIED: {t2_reason}",
+                tier_1_errors=tuple(t1_errors),
+            )
+
+        return SafetyVerdict(
+            approved=True,
+            tier_1_passed=True,
+            tier_2_passed=True,
+            tier_3_passed=True,
+            reason="All three safety tiers passed",
+            tier_1_errors=(),
+        )
+
+    # ── outcome tracking (feeds Tier 3) ──────────────────────────
+
+    def record_success(self) -> None:
+        """Call after a patch is applied successfully."""
+        self._kill.record_success()
+
+    def record_failure(self) -> None:
+        """Call after a patch fails at any stage."""
+        self._kill.record_failure()
+
+    def reset_kill_switch(self) -> None:
+        """Manual reset — operator must call this after investigating."""
+        self._kill.reset()
+
+    def kill_switch_status(self) -> dict:
+        """Return current kill-switch state for dashboard display."""
+        return self._kill.status()
+
+
+# ── module-level singleton ────────────────────────────────────────────
+safety_cage = SafetyCage()
+

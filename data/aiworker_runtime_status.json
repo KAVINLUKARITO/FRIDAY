@@ -1,0 +1,10 @@
+{
+  "goal": "",
+  "iteration": 0,
+  "last_action": "runtime stop requested",
+  "last_error": null,
+  "last_iteration_completed_at": null,
+  "last_iteration_started_at": null,
+  "paused": false,
+  "running": false
+}

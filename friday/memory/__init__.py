@@ -1,0 +1,1 @@
+"""Friday memory modules."""

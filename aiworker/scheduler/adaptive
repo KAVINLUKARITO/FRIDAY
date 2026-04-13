@@ -1,0 +1,541 @@
+"""
+AIWorker Adaptive Scheduler - Phase 4 Autonomous Intelligence
+
+Intelligent work scheduling based on resources and priorities.
+
+Replaces fixed cron with dynamic scheduling:
+- Goal queue (from goals/generator.py)
+- Resource predictions (from predictor/resource_model.py)
+- Current system state (from telemetry/monitor.py)
+- Time of day (quiet hours, operator availability)
+
+Scheduling algorithm:
+1. Score all pending goals by priority and resource fit
+2. Filter out goals exceeding current capacity
+3. Select top goal that fits in available time window
+4. Reserve resources (prevent other work)
+5. Execute with timeout based on prediction
+
+Time windows:
+- Peak hours (09:00-18:00): Small, safe tasks only
+- Quiet hours (00:00-06:00): Large, risky tasks (full resources)
+- Maintenance window (Sunday 02:00): Backups, cleanup, updates
+"""
+
+import json
+import logging
+import sqlite3
+import time
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import Enum
+from pathlib import Path
+from typing import Optional
+
+from aiworker.config import AIWorkerConfig
+from aiworker.goals.generator import GoalGenerator, AutonomousGoal
+from aiworker.predictor.resource_model import ResourcePredictor
+from aiworker.telemetry.monitor import TelemetryMonitor
+
+logger = logging.getLogger("aiworker.scheduler")
+
+
+class TimeWindow(Enum):
+    """Time windows for scheduling."""
+    PEAK = "peak"           # 09:00-18:00
+    QUIET = "quiet"         # 00:00-06:00
+    OFF_PEAK = "off_peak"   # 06:00-09:00, 18:00-00:00
+    MAINTENANCE = "maintenance"  # Sunday 02:00
+
+
+@dataclass
+class ScheduledTask:
+    """A scheduled task."""
+    goal: AutonomousGoal
+    scheduled_at: float
+    predicted_memory_gb: float
+    predicted_duration_min: float
+    time_window: TimeWindow
+    resource_reserved: bool = False
+    started_at: Optional[float] = None
+    completed_at: Optional[float] = None
+    status: str = "scheduled"  # scheduled, running, completed, failed, deferred
+
+
+class AdaptiveScheduler:
+    """
+    Intelligent work scheduler for AIWorker.
+    
+    Dynamically schedules goals based on:
+    - Resource availability and predictions
+    - Time of day (peak vs quiet hours)
+    - Goal priority and risk level
+    - Human operator availability
+    """
+    
+    # Time window hours
+    PEAK_START = 9
+    PEAK_END = 18
+    QUIET_START = 0
+    QUIET_END = 6
+    
+    # Resource thresholds
+    MEMORY_HIGH_GB = 26.0
+    MEMORY_MEDIUM_GB = 22.0
+    
+    def __init__(self, config: Optional[AIWorkerConfig] = None):
+        self.config = config or AIWorkerConfig.from_env()
+        self.base_path = Path(self.config.base_path)
+        
+        # Sub-components
+        self.goal_generator = GoalGenerator(config)
+        self.predictor = ResourcePredictor(config)
+        self.telemetry = TelemetryMonitor(config)
+        
+        # Current state
+        self._current_task: Optional[ScheduledTask] = None
+        self._resource_reserved = False
+        self._human_active = False
+        
+        # Initialize database
+        self._init_database()
+        
+        logger.info("AdaptiveScheduler initialized")
+    
+    def _init_database(self):
+        """Initialize SQLite database for schedule."""
+        db_path = self.base_path / "data" / "schedule.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS scheduled_tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                goal_type TEXT NOT NULL,
+                description TEXT,
+                target_file TEXT,
+                priority_score REAL,
+                scheduled_at REAL NOT NULL,
+                predicted_memory_gb REAL,
+                predicted_duration_min REAL,
+                time_window TEXT,
+                status TEXT DEFAULT 'scheduled',
+                started_at REAL,
+                completed_at REAL,
+                iteration_id TEXT
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS schedule_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp REAL NOT NULL,
+                action TEXT NOT NULL,
+                details TEXT
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_tasks_status 
+            ON scheduled_tasks(status)
+        ''')
+        
+        conn.commit()
+        conn.close()
+    
+    def _get_db_path(self) -> Path:
+        """Get database path."""
+        return self.base_path / "data" / "schedule.db"
+    
+    def _get_current_time_window(self) -> TimeWindow:
+        """Determine current time window."""
+        now = datetime.now()
+        hour = now.hour
+        weekday = now.weekday()
+        
+        # Maintenance window: Sunday 02:00-04:00
+        if weekday == 6 and 2 <= hour < 4:
+            return TimeWindow.MAINTENANCE
+        
+        # Quiet hours: 00:00-06:00
+        if self.QUIET_START <= hour < self.QUIET_END:
+            return TimeWindow.QUIET
+        
+        # Peak hours: 09:00-18:00
+        if self.PEAK_START <= hour < self.PEAK_END:
+            return TimeWindow.PEAK
+        
+        return TimeWindow.OFF_PEAK
+    
+    def _is_safe_for_peak_hours(self, goal: AutonomousGoal) -> bool:
+        """Check if goal is safe to run during peak hours."""
+        # Low priority and low risk goals only during peak
+        if goal.priority_score > 70:
+            return False
+        
+        # Avoid complex refactoring during peak
+        if goal.goal_type in ['refactor_complexity', 'optimize_memory']:
+            return False
+        
+        return True
+    
+    def _get_current_memory_gb(self) -> float:
+        """Get current memory usage."""
+        try:
+            snapshot = self.telemetry.get_snapshot()
+            return snapshot.memory.used_gb
+        except Exception:
+            return 10.0  # Assume moderate usage
+    
+    def _can_fit_in_resources(
+        self,
+        predicted_memory: float,
+        current_memory: float
+    ) -> bool:
+        """Check if predicted memory fits within available resources."""
+        total = predicted_memory + current_memory
+        return total < self.MEMORY_HIGH_GB
+    
+    def _score_goal_for_scheduling(
+        self,
+        goal: AutonomousGoal,
+        time_window: TimeWindow,
+        current_memory: float
+    ) -> float:
+        """
+        Score a goal for scheduling.
+        
+        Higher score = better fit for current conditions.
+        """
+        base_score = goal.priority_score
+        
+        # Time window fit
+        if time_window == TimeWindow.PEAK:
+            # Prefer small, safe tasks during peak
+            if not self._is_safe_for_peak_hours(goal):
+                base_score *= 0.5
+        
+        elif time_window == TimeWindow.QUIET:
+            # Prefer large, complex tasks during quiet hours
+            if goal.goal_type in ['refactor_complexity', 'optimize_memory']:
+                base_score *= 1.2
+        
+        elif time_window == TimeWindow.MAINTENANCE:
+            # Only maintenance tasks
+            if goal.goal_type not in ['cleanup', 'backup']:
+                base_score *= 0.1
+        
+        # Resource fit
+        if goal.target_file:
+            prediction = self.predictor.predict(
+                goal.target_file,
+                goal.goal_type
+            )
+            
+            if not self._can_fit_in_resources(
+                prediction.estimated_memory_gb,
+                current_memory
+            ):
+                base_score *= 0.1  # Heavily penalize if won't fit
+            
+            # Bonus for good resource fit
+            total_memory = prediction.estimated_memory_gb + current_memory
+            if total_memory < self.MEMORY_MEDIUM_GB:
+                base_score *= 1.1
+        
+        # Human activity check
+        if self._human_active:
+            # Prefer human-friendly tasks when operator present
+            if goal.goal_type in ['add_tests', 'add_docstrings']:
+                base_score *= 1.1
+        
+        return base_score
+    
+    def get_next_goal(self) -> Optional[AutonomousGoal]:
+        """
+        Get the next goal to execute.
+        
+        Returns:
+            AutonomousGoal if one should be executed, None otherwise
+        """
+        # Check if already running a task
+        if self._current_task and self._current_task.status == "running":
+            return None
+        
+        # Get current conditions
+        time_window = self._get_current_time_window()
+        current_memory = self._get_current_memory_gb()
+        
+        logger.debug(f"Scheduling check: window={time_window.value}, memory={current_memory:.1f}GB")
+        
+        # Get pending goals
+        pending_goals = self.goal_generator.get_goal_queue(limit=20)
+        
+        if not pending_goals:
+            # Generate new goals if queue is empty
+            pending_goals = self.goal_generator.generate_goals()
+        
+        if not pending_goals:
+            return None
+        
+        # Score each goal
+        scored_goals = []
+        for goal in pending_goals:
+            score = self._score_goal_for_scheduling(goal, time_window, current_memory)
+            scored_goals.append((goal, score))
+        
+        # Sort by score
+        scored_goals.sort(key=lambda x: -x[1])
+        
+        # Return best goal if score is acceptable
+        if scored_goals and scored_goals[0][1] > 20:
+            return scored_goals[0][0]
+        
+        return None
+    
+    def schedule_task(self, goal: AutonomousGoal) -> ScheduledTask:
+        """Schedule a task for execution."""
+        time_window = self._get_current_time_window()
+        current_memory = self._get_current_memory_gb()
+        
+        # Get prediction
+        prediction = self.predictor.predict(
+            goal.target_file or Path("/dev/null"),
+            goal.goal_type
+        )
+        
+        task = ScheduledTask(
+            goal=goal,
+            scheduled_at=time.time(),
+            predicted_memory_gb=prediction.estimated_memory_gb,
+            predicted_duration_min=prediction.estimated_duration_minutes,
+            time_window=time_window
+        )
+        
+        # Persist
+        self._persist_task(task)
+        
+        logger.info(f"Scheduled task: {goal.goal_type} (score: {goal.priority_score:.1f})")
+        
+        return task
+    
+    def _persist_task(self, task: ScheduledTask):
+        """Persist scheduled task to database."""
+        try:
+            conn = sqlite3.connect(str(self._get_db_path()))
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT INTO scheduled_tasks 
+                (goal_type, description, target_file, priority_score, scheduled_at,
+                 predicted_memory_gb, predicted_duration_min, time_window, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                task.goal.goal_type,
+                task.goal.description,
+                str(task.goal.target_file) if task.goal.target_file else None,
+                task.goal.priority_score,
+                task.scheduled_at,
+                task.predicted_memory_gb,
+                task.predicted_duration_min,
+                task.time_window.value,
+                task.status
+            ))
+            
+            conn.commit()
+            conn.close()
+        
+        except Exception as e:
+            logger.warning(f"Failed to persist task: {e}")
+    
+    def start_task(self, task: ScheduledTask, iteration_id: str):
+        """Mark task as started."""
+        task.status = "running"
+        task.started_at = time.time()
+        task.iteration_id = iteration_id
+        self._current_task = task
+        
+        # Reserve resources
+        self._resource_reserved = True
+        
+        self._update_task_status(task)
+        
+        logger.info(f"Started task: {task.goal.goal_type}")
+    
+    def complete_task(self, task: ScheduledTask, success: bool):
+        """Mark task as completed."""
+        task.status = "completed" if success else "failed"
+        task.completed_at = time.time()
+        
+        # Release resources
+        self._resource_reserved = False
+        self._current_task = None
+        
+        self._update_task_status(task)
+        
+        # Update goal status
+        self.goal_generator.update_goal_status(
+            task.goal.goal_type,
+            task.goal.target_file,
+            "completed" if success else "failed",
+            task.iteration_id
+        )
+        
+        logger.info(f"Completed task: {task.goal.goal_type} (success={success})")
+    
+    def _update_task_status(self, task: ScheduledTask):
+        """Update task status in database."""
+        try:
+            conn = sqlite3.connect(str(self._get_db_path()))
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                UPDATE scheduled_tasks
+                SET status = ?, started_at = ?, completed_at = ?, iteration_id = ?
+                WHERE goal_type = ? AND scheduled_at = ?
+            ''', (
+                task.status,
+                task.started_at,
+                task.completed_at,
+                task.iteration_id,
+                task.goal.goal_type,
+                task.scheduled_at
+            ))
+            
+            conn.commit()
+            conn.close()
+        
+        except Exception as e:
+            logger.debug(f"Failed to update task status: {e}")
+    
+    def defer_current_task(self):
+        """Defer current task to later."""
+        if self._current_task:
+            self._current_task.status = "deferred"
+            self._update_task_status(self._current_task)
+            
+            # Defer goal
+            self.goal_generator.defer_goal(
+                self._current_task.goal.goal_type,
+                self._current_task.goal.target_file
+            )
+            
+            self._resource_reserved = False
+            self._current_task = None
+            
+            logger.info("Deferred current task")
+    
+    def run_cycle(self) -> Optional[AutonomousGoal]:
+        """
+        Run one scheduling cycle.
+        
+        Returns:
+            Goal to execute, or None if no suitable goal
+        """
+        # Check for emergency conditions
+        current_memory = self._get_current_memory_gb()
+        
+        if current_memory > 28.0:
+            logger.warning("Memory critical, pausing scheduling")
+            return None
+        
+        # Get next goal
+        goal = self.get_next_goal()
+        
+        if goal:
+            # Schedule the task
+            task = self.schedule_task(goal)
+            return goal
+        
+        return None
+    
+    def set_human_active(self, active: bool):
+        """Set human operator activity status."""
+        self._human_active = active
+        
+        if active:
+            logger.info("Human operator active - adjusting schedule")
+        
+    def get_schedule(self, limit: int = 10) -> list[dict]:
+        """Get upcoming scheduled tasks."""
+        try:
+            conn = sqlite3.connect(str(self._get_db_path()))
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT * FROM scheduled_tasks
+                WHERE status = 'scheduled'
+                ORDER BY priority_score DESC
+                LIMIT ?
+            ''', (limit,))
+            
+            rows = cursor.fetchall()
+            conn.close()
+            
+            return [
+                {
+                    'goal_type': row[1],
+                    'description': row[2],
+                    'target_file': row[3],
+                    'priority_score': row[4],
+                    'scheduled_at': row[5],
+                    'predicted_memory_gb': row[6],
+                    'predicted_duration_min': row[7],
+                    'time_window': row[8],
+                    'status': row[9]
+                }
+                for row in rows
+            ]
+        
+        except Exception as e:
+            logger.warning(f"Failed to get schedule: {e}")
+            return []
+    
+    def get_stats(self) -> dict:
+        """Get scheduler statistics."""
+        try:
+            conn = sqlite3.connect(str(self._get_db_path()))
+            cursor = conn.cursor()
+            
+            # Total tasks
+            cursor.execute('SELECT COUNT(*) FROM scheduled_tasks')
+            total = cursor.fetchone()[0]
+            
+            # By status
+            cursor.execute('''
+                SELECT status, COUNT(*) FROM scheduled_tasks
+                GROUP BY status
+            ''')
+            by_status = {row[0]: row[1] for row in cursor.fetchall()}
+            
+            # Completed today
+            today_start = time.time() - 24 * 3600
+            cursor.execute('''
+                SELECT COUNT(*) FROM scheduled_tasks
+                WHERE status = 'completed' AND completed_at > ?
+            ''', (today_start,))
+            completed_today = cursor.fetchone()[0]
+            
+            conn.close()
+            
+            return {
+                'total_tasks': total,
+                'by_status': by_status,
+                'completed_today': completed_today,
+                'current_window': self._get_current_time_window().value,
+                'resource_reserved': self._resource_reserved,
+                'human_active': self._human_active
+            }
+        
+        except Exception as e:
+            logger.warning(f"Failed to get stats: {e}")
+            return {}
+
+
+# Factory function
+def create_adaptive_scheduler(config: Optional[AIWorkerConfig] = None) -> AdaptiveScheduler:
+    """Create and return an AdaptiveScheduler instance."""
+    return AdaptiveScheduler(config)
+

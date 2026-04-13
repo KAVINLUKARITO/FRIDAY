@@ -1,0 +1,42 @@
+import os
+import tempfile
+import subprocess
+import shutil
+
+
+def check_patch_applicability(target_file: str, patch_path: str):
+    """
+    Dry-run apply patch to a temporary copy of target_file.
+    Returns (True, None) if patch applies cleanly.
+    Returns (False, error_message) if patch fails.
+    """
+
+    # Allow new file creation only inside aiworker/
+    if not os.path.exists(target_file):
+        if not target_file.startswith("aiworker/"):
+            return False, "New files must be inside aiworker/ directory."
+
+    if not os.path.isfile(patch_path):
+        return False, "Patch file does not exist."
+
+    temp_dir = tempfile.mkdtemp()
+
+    try:
+        temp_file = os.path.join(temp_dir, os.path.basename(target_file))
+        shutil.copy(target_file, temp_file)
+
+        # Run patch command in temp dir
+        result = subprocess.run(
+            ["patch", temp_file, patch_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        if result.returncode != 0:
+            return False, result.stderr.strip() or result.stdout.strip()
+
+        return True, None
+
+    finally:
+        shutil.rmtree(temp_dir)

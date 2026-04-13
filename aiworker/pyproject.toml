@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "local-first-multi-agent-system"
+version = "1.0.0"
+description = "Local-first multi-agent bug bounty and trading lab system."
+requires-python = ">=3.11"
+dependencies = [
+    "httpx==0.28.1",
+    "pydantic==2.12.5",
+    "pydantic-settings==2.10.1",
+    "websockets==15.0.1",
+    "beautifulsoup4==4.13.4",
+    "pytest==8.4.2",
+    "pytest-asyncio==1.1.0",
+    "pytest-cov==6.2.1",
+]
+
+[tool.setuptools]
+packages = ["agents", "agents.bug_bounty", "agents.trading"]
+py-modules = [
+    "config",
+    "logger",
+    "message_bus",
+    "tools",
+    "validator",
+    "executor",
+    "verifier",
+    "storage",
+    "runner",
+    "main",
+    "eval",
+]
+
+[tool.pytest.ini_options]
+addopts = "--basetemp=C:/Users/admin/Downloads/pytest_tmp_aiworker_multi -p no:cacheprovider"
+testpaths = ["tests"]
