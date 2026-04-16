@@ -1,11 +1,11 @@
 """Ollama prompt backend with retry logic."""
 
 from __future__ import annotations
-
 import os
 import shutil
 import subprocess
 import time
+import requests
 
 
 def _safe_env() -> dict[str, str]:
@@ -38,52 +38,30 @@ class OllamaBackend:
         return self.model
 
     def generate(self, prompt: str) -> str:
-        last_error: str | None = None
-        attempts = self.max_retries + 1
-        for attempt in range(attempts):
-            try:
-                if shutil.which("ollama") is None and not _is_mocked_callable(subprocess.run):
-                    raise FileNotFoundError("ollama")
-                if _is_mocked_callable(subprocess.Popen) and not _is_mocked_callable(subprocess.run):
-                    result = self._run_with_popen(prompt)
-                else:
-                    result = subprocess.run(
-                        ["ollama", "run", self.model_name],
-                        input=prompt,
-                        text=True,
-                        capture_output=True,
-                        timeout=self.timeout,
-                        env=_safe_env(),
-                    )
-            except FileNotFoundError:
-                last_error = "ollama executable not found"
-                if attempt == attempts - 1:
-                    raise RuntimeError(
-                        f"Ollama backend failed after {attempts} attempt(s): {last_error}"
-                    )
-                time.sleep(0.05)
-                continue
-            except (subprocess.TimeoutExpired, OSError) as exc:
-                last_error = str(exc)
-                if isinstance(exc, subprocess.TimeoutExpired) and "timed out" not in last_error:
-                    last_error = f"timed out after {exc.timeout} seconds"
-                if attempt < attempts - 1:
-                    time.sleep(0.05)
-                continue
+        import requests
 
-            stdout = result.stdout
-            stderr = result.stderr
-            if result.returncode == 0:
-                return (stdout or "").strip()
-            last_error = (stderr or "").strip() or (
-                f"non-zero exit code: {result.returncode}"
+        try:
+            response = requests.post(
+                "http://127.0.0.1:11434/api/generate",
+                json={
+                    "model": self.model_name,
+                   "prompt": prompt,
+                   "stream": False
+                    },
+                timeout=300
             )
-            if attempt < attempts - 1:
-                time.sleep(0.05)
 
-        raise RuntimeError(
-            f"Ollama backend failed after {attempts} attempt(s): {last_error}"
-        )
+            response.raise_for_status()
+
+            data = response.json()
+            return data.get("response", "").strip()
+
+        except Exception as e:
+            raise RuntimeError(f"Ollama HTTP backend failed: {e}")
+
+            raise RuntimeError(
+                f"Ollama backend failed after {attempts} attempt(s): {last_error}"
+            )
 
     def _run_with_popen(self, prompt: str) -> subprocess.CompletedProcess[str]:
         proc = subprocess.Popen(
