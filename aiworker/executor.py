@@ -6,9 +6,9 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from config import settings
-from tools import TOOL_REGISTRY, SafetyError, ToolError
-from validator import ValidatedAction
+from aiworker.config import settings
+from aiworker.tools import TOOL_REGISTRY, SafetyError, ToolError
+from aiworker.validator import ValidatedAction
 
 
 class ExecutionResult(BaseModel):

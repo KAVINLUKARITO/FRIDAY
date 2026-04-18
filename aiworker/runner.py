@@ -18,13 +18,13 @@ from agents.trading.execution_agent import ExecutionAgent
 from agents.trading.portfolio_agent import PortfolioAgent
 from agents.trading.risk_agent import RiskAgent
 from agents.trading.strategy_agent import StrategyAgent
-from config import settings
-from executor import Executor
-from logger import get_logger
-from message_bus import Event, EventType, bus
-from storage import Storage
-from validator import Validator
-from verifier import Verifier
+from aiworker.config import settings
+from aiworker.executor import Executor
+from aiworker.logger import get_logger
+from aiworker.message_bus import Event, EventType, bus
+from aiworker.storage import Storage
+from aiworker.validator import Validator
+from aiworker.verifier import Verifier
 
 
 def _ensure_runtime() -> None:

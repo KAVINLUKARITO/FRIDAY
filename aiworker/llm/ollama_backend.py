@@ -38,30 +38,37 @@ class OllamaBackend:
         return self.model
 
     def generate(self, prompt: str) -> str:
-        import requests
+        host = (
+            os.getenv("AIWORKER_OLLAMA_HOST")
+            or os.getenv("OLLAMA_HOST")
+            or "http://127.0.0.1:11434"
+        ).rstrip("/")
+        attempts = self.max_retries + 1
+        last_error: Exception | None = None
 
-        try:
-            response = requests.post(
-                "http://127.0.0.1:11434/api/generate",
-                json={
-                    "model": self.model_name,
-                   "prompt": prompt,
-                   "stream": False
+        for attempt in range(1, attempts + 1):
+            try:
+                response = requests.post(
+                    f"{host}/api/generate",
+                    json={
+                        "model": self.model_name,
+                        "prompt": prompt,
+                        "stream": False,
                     },
-                timeout=300
-            )
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                data = response.json()
+                return str(data.get("response", "")).strip()
+            except Exception as exc:
+                last_error = exc
+                if attempt >= attempts:
+                    break
+                time.sleep(min(0.25 * attempt, 1.0))
 
-            response.raise_for_status()
-
-            data = response.json()
-            return data.get("response", "").strip()
-
-        except Exception as e:
-            raise RuntimeError(f"Ollama HTTP backend failed: {e}")
-
-            raise RuntimeError(
-                f"Ollama backend failed after {attempts} attempt(s): {last_error}"
-            )
+        raise RuntimeError(
+            f"Ollama backend failed after {attempts} attempt(s): {last_error}"
+        )
 
     def _run_with_popen(self, prompt: str) -> subprocess.CompletedProcess[str]:
         proc = subprocess.Popen(

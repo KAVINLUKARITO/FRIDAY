@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from runner import main
+from aiworker.runner import main
 
 raise SystemExit(main())

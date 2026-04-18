@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import platform
 import re
-from pathlib import Path
+import sys
 from typing import Any
 
+from aiworker.llm.ollama_backend import OllamaBackend
+from aiworker.llm.model_router import ModelRole, ModelRouter
 from logger import get_logger
 from planner import AgentState
 from tools import TOOL_REGISTRY
@@ -11,60 +14,51 @@ from tools import TOOL_REGISTRY
 from friday.memory.retrieval import RetrievalEngine
 
 
+def _system_info(include_environment: bool = False) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "python_version": sys.version.split()[0],
+        "platform": platform.platform(),
+        "processor": platform.processor() or platform.machine() or "unknown",
+    }
+    if include_environment:
+        data["executable"] = sys.executable
+    return data
+
+
+TOOL_REGISTRY.setdefault("system_info", _system_info)
+
+
 class AdaptivePlanner:
-    """Planner that remains deterministic but can use prior experience."""
+    """Planner that selects tools through the LLM planner router."""
 
     def __init__(self, retrieval: RetrievalEngine | None = None) -> None:
         self.retrieval = retrieval
         self.logger = get_logger("friday.planner")
+        self.router = ModelRouter()
+        backend = OllamaBackend("llama3:8b")
+        self.router._planner_backend = backend
+        self.router._coder_backend = backend
 
     def plan(self, state: AgentState) -> dict[str, Any]:
-        context = self._context_for_task(state.task)
-        action = None
-        if (
-            state.step_number == 1
-            and context["confidence"] > 0.7
-            and context["recommended_tools"]
-        ):
-            preferred_tool = context["recommended_tools"][0]
-            if preferred_tool in TOOL_REGISTRY:
-                action = self._action_for_tool(
-                    preferred_tool,
-                    state.task,
-                    state.step_number,
-                    memory_guided=True,
-                )
-        if action is None:
-            task_segment = self._task_segments(state.task)[state.step_number - 1]
-            action = self._build_action(task_segment, state.step_number, is_replan=False)
-
-        if context["known_pitfalls"]:
-            pitfalls = "; ".join(context["known_pitfalls"][:3])
-            action["reason"] = f"{action['reason']} | known pitfalls: {pitfalls}"
-        return action
+        task_segment = self._task_segments(state.task)[state.step_number - 1]
+        previous_output = state.shared_context.get(state.step_number - 1)
+        return self._build_action(
+            task_segment,
+            state.step_number,
+            is_replan=False,
+            previous_output=previous_output,
+        )
 
     def replan(self, state: AgentState, failure_reason: str) -> dict[str, Any]:
-        context = self._context_for_task(state.task)
-        similar = context["similar_past_tasks"]
-        memory_tool = None
-        failure_text = failure_reason.lower()
-        for episode_info in similar:
-            lessons = [lesson.lower() for lesson in episode_info.get("lessons", [])]
-            if any(failure_text in lesson for lesson in lessons):
-                tools_used = episode_info.get("tools_used", [])
-                if tools_used:
-                    memory_tool = tools_used[0]
-                    break
-        if memory_tool and memory_tool in TOOL_REGISTRY:
-            self.logger.info("memory-guided replan selected tool=%s", memory_tool)
-            action = self._action_for_tool(memory_tool, state.task, state.step_number, memory_guided=True)
-            action["reason"] = f"{action['reason']} after failure: {failure_reason}"
-            return action
-
-        self.logger.info("default replan selected for failure=%s", failure_reason)
         task_segment = self._task_segments(state.task)[state.step_number - 1]
-        action = self._build_action(task_segment, state.step_number, is_replan=True)
-        action["reason"] = f"{action['reason']} after failure: {failure_reason}"
+        previous_output = state.shared_context.get(state.step_number - 1)
+        action = self._build_action(
+            task_segment,
+            state.step_number,
+            is_replan=True,
+            previous_output=previous_output,
+            failure_reason=failure_reason,
+        )
         action["parameters"] = self._variant_parameters(
             str(action["tool_name"]),
             dict(action["parameters"]),
@@ -76,24 +70,24 @@ class AdaptivePlanner:
         return state.step_number < len(self._task_segments(state.task))
 
     def get_confidence(self, task: str) -> float:
-        return float(self._context_for_task(task)["confidence"])
+        _ = task
+        return 1.0
 
     def _context_for_task(self, task: str) -> dict[str, Any]:
-        if self.retrieval is None:
-            return {
-                "similar_past_tasks": [],
-                "recommended_tools": [],
-                "known_pitfalls": [],
-                "estimated_steps": 0,
-                "confidence": 0.0,
-            }
-        return self.retrieval.get_context_for_task(task)
+        _ = task
+        return {
+            "similar_past_tasks": [],
+            "recommended_tools": [],
+            "known_pitfalls": [],
+            "estimated_steps": 0,
+            "confidence": 1.0,
+        }
 
     @staticmethod
     def _task_segments(task: str) -> list[str]:
         segments = [
             segment.strip()
-            for segment in re.split(r"\bthen\b|\band\b", task, flags=re.IGNORECASE)
+            for segment in re.split(r"\bthen\b|\band\b|,", task, flags=re.IGNORECASE)
             if segment.strip()
         ]
         return segments or [task]
@@ -103,49 +97,27 @@ class AdaptivePlanner:
         task_segment: str,
         step_number: int,
         is_replan: bool,
+        previous_output: Any = None,
+        failure_reason: str | None = None,
     ) -> dict[str, Any]:
-        normalized = task_segment.casefold()
+        tool_name = self._select_tool(
+            task_segment,
+            previous_output=previous_output,
+            failure_reason=failure_reason,
+        )
+        parameters = self._default_parameters(
+            tool_name,
+            task_segment,
+            previous_output=previous_output,
+        )
         reason_prefix = "Replanned action" if is_replan else "Planned action"
-
-        if "read" in normalized:
-            return {
-                "tool_name": "read_file",
-                "parameters": {"path": "sample.txt"},
-                "reason": f"{reason_prefix}: read sample text file",
-                "step_number": step_number,
-            }
-        if "write" in normalized:
-            return {
-                "tool_name": "write_file",
-                "parameters": {"path": "out.txt", "content": "task result"},
-                "reason": f"{reason_prefix}: write task result to workspace",
-                "step_number": step_number,
-            }
-        if "list" in normalized:
-            return {
-                "tool_name": "list_files",
-                "parameters": {"path": "."},
-                "reason": f"{reason_prefix}: list workspace files",
-                "step_number": step_number,
-            }
-        if "http" in normalized or "get" in normalized:
-            return {
-                "tool_name": "http_get",
-                "parameters": {"url": "https://example.com"},
-                "reason": f"{reason_prefix}: fetch a stable example URL",
-                "step_number": step_number,
-            }
-        if "csv" in normalized:
-            return {
-                "tool_name": "parse_csv",
-                "parameters": {"path": "sample.csv"},
-                "reason": f"{reason_prefix}: parse workspace CSV data",
-                "step_number": step_number,
-            }
+        reason = f"{reason_prefix}: use {tool_name} for task '{task_segment}'"
+        if failure_reason:
+            reason = f"{reason} after failure: {failure_reason}"
         return {
-            "tool_name": "list_files",
-            "parameters": {"path": "."},
-            "reason": f"{reason_prefix}: default to listing workspace files",
+            "tool_name": tool_name,
+            "parameters": parameters,
+            "reason": reason,
             "step_number": step_number,
         }
 
@@ -156,19 +128,11 @@ class AdaptivePlanner:
         step_number: int,
         memory_guided: bool,
     ) -> dict[str, Any]:
-        defaults = {
-            "read_file": {"path": "sample.txt"},
-            "write_file": {"path": "out.txt", "content": "task result"},
-            "list_files": {"path": "."},
-            "http_get": {"url": "https://example.com"},
-            "parse_csv": {"path": "sample.csv"},
-        }
-        parameters = defaults.get(tool_name, {"path": "."})
-        reason_prefix = "memory-guided: similar task succeeded with this tool" if memory_guided else "planned action"
+        _ = memory_guided
         return {
             "tool_name": tool_name,
-            "parameters": parameters,
-            "reason": f"{reason_prefix} for task '{task}'",
+            "parameters": self._default_parameters(tool_name, task),
+            "reason": f"planned action for task '{task}'",
             "step_number": step_number,
         }
 
@@ -178,18 +142,135 @@ class AdaptivePlanner:
         parameters: dict[str, object],
         step_number: int,
     ) -> dict[str, object]:
-        if tool_name == "write_file":
-            path = Path(str(parameters["path"]))
-            variant_path = path.with_name(f"{path.stem}_{step_number}{path.suffix}")
-            return {
-                "path": variant_path.as_posix(),
-                "content": f"{parameters['content']} {step_number}",
-            }
-        if tool_name == "http_get":
-            separator = "&" if "?" in str(parameters["url"]) else "?"
-            return {"url": f"{parameters['url']}{separator}step={step_number}"}
+        _ = tool_name
+        _ = step_number
+        return parameters
+
+    def _normalize_tool(self, raw: str) -> str:
+        text = raw.strip().lower()
+
+        # remove formatting noise
+        text = text.replace("`", "").replace('"', "").replace("'", "")
+
+        # extract valid tool only
+        match = re.search(r"\b(system_info|list_files|read_file|web_search)\b", text)
+
+        if match:
+            return match.group(1)
+
+        return "list_files"
+
+    def _default_parameters(
+        self,
+        tool_name: str,
+        task: str,
+        previous_output: Any = None,
+    ) -> dict[str, Any]:
+        if tool_name == "system_info":
+            return {"include_environment": False}
+        if tool_name == "list_files":
+            return {"path": "."}
         if tool_name == "read_file":
-            return {"path": str(parameters["path"])}
-        if tool_name == "parse_csv":
-            return {"path": str(parameters["path"])}
-        return {"path": str(parameters.get("path", "."))}
+            resolved_path = self._path_from_task_or_context(task, previous_output)
+            if resolved_path:
+                return {"path": resolved_path}
+            return {"path": "sample.txt"}
+        if tool_name == "web_search":
+            return {"query": re.sub(r"^(search|look up|find)\s+", "", task, flags=re.IGNORECASE).strip() or task}
+        return {}
+
+    @staticmethod
+    def _path_from_task_or_context(task: str, previous_output: Any) -> str | None:
+        task_match = re.search(r"read(?:\s+file)?\s+(.+)", task, flags=re.IGNORECASE)
+        requested_path = task_match.group(1).strip(" .") if task_match else ""
+        if requested_path:
+            return requested_path
+
+        candidates: list[str] = []
+        if isinstance(previous_output, list):
+            candidates = [item for item in previous_output if isinstance(item, str) and item.strip()]
+        elif isinstance(previous_output, dict):
+            values = previous_output.get("files")
+            if isinstance(values, list):
+                candidates = [item for item in values if isinstance(item, str) and item.strip()]
+        elif isinstance(previous_output, str) and previous_output.strip():
+            candidates = [line.strip() for line in previous_output.splitlines() if line.strip()]
+
+        for candidate in candidates:
+            if "." in candidate:
+                return candidate
+        return None
+
+    @staticmethod
+    def _keyword_fallback(task: str) -> str:
+        normalized = task.casefold()
+        if any(term in normalized for term in ("search", "look up", "find", "internet", "web")):
+            return "web_search"
+        if "system" in normalized or "platform" in normalized:
+            return "system_info"
+        if "read" in normalized:
+            return "read_file"
+        if "list" in normalized:
+            return "list_files"
+        return "list_files"
+
+    def _select_tool(
+        self,
+        task: str,
+        previous_output: Any = None,
+        failure_reason: str | None = None,
+    ) -> str:
+        import signal
+
+        if previous_output is not None:
+            tool = self._keyword_fallback(task)
+            print("[PLANNER FALLBACK TOOL]:", tool)
+            return tool
+
+        prompt = f"""
+Task: {task}
+Previous output: {previous_output if previous_output is not None else "none"}
+Previous failure: {failure_reason if failure_reason else "none"}
+
+Available tools:
+- system_info
+- list_files
+- read_file
+- web_search
+
+Choose a better tool.
+Return ONLY tool name.
+"""
+
+        def timeout_handler(signum: int, frame: Any) -> None:
+            _ = signum
+            _ = frame
+            raise TimeoutError("LLM timeout")
+
+        try:
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(10)
+            try:
+                raw = self.router.generate(ModelRole.PLANNER, prompt)
+            finally:
+                signal.alarm(0)
+            if not isinstance(raw, str) or not raw.strip():
+                raise ValueError("empty LLM response")
+        except TimeoutError:
+            print("[PLANNER TIMEOUT] using fallback")
+            tool = self._keyword_fallback(task)
+            print("[PLANNER FALLBACK TOOL]:", tool)
+            return tool
+        except Exception as e:
+            print(f"[LLM ERROR]: {e}")
+            tool = self._keyword_fallback(task)
+            print("[PLANNER FALLBACK TOOL]:", tool)
+            return tool
+
+        print(f"[LLM RAW]: {raw}")
+
+        tool = self._normalize_tool(raw)
+        if tool == "list_files":
+            tool = self._keyword_fallback(task)
+        print(f"[SELECTED TOOL]: {tool}")
+        return tool

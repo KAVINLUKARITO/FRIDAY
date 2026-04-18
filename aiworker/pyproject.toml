@@ -35,5 +35,5 @@ py-modules = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--basetemp=C:/Users/admin/Downloads/pytest_tmp_aiworker_multi -p no:cacheprovider"
+addopts = "--basetemp=.pytest_tmp_aiworker_multi -p no:cacheprovider"
 testpaths = ["tests"]

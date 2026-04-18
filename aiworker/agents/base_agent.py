@@ -1,18 +1,19 @@
 from __future__ import annotations
 
+import inspect
 import time
 from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from config import settings
-from executor import ExecutionResult, Executor
-from logger import get_logger
-from message_bus import Event, EventType, MessageBus
-from storage import StepRecord, Storage
-from validator import ValidatedAction, ValidationError, Validator
-from verifier import VerificationResult, VerificationStatus, Verifier
+from aiworker.config import settings
+from aiworker.executor import ExecutionResult, Executor
+from aiworker.logger import get_logger
+from aiworker.message_bus import Event, EventType, MessageBus
+from aiworker.storage import StepRecord, Storage
+from aiworker.validator import ValidatedAction, ValidationError, Validator
+from aiworker.verifier import VerificationResult, VerificationStatus, Verifier
 
 
 class AgentState(BaseModel):
@@ -112,7 +113,11 @@ class BaseAgent:
                 tool_name="planning",
             )
 
-        execution_result = self.executor.run(validated_action, timeout=settings.step_timeout)
+        run_signature = inspect.signature(self.executor.run)
+        if "timeout" in run_signature.parameters:
+            execution_result = self.executor.run(validated_action, timeout=settings.step_timeout)
+        else:
+            execution_result = self.executor.run(validated_action)
         verification_result = self.verifier.verify(validated_action, execution_result)
 
         record = StepRecord(
@@ -163,7 +168,7 @@ class BaseAgent:
             if state.status != "running":
                 break
 
-            if verification_result.status is VerificationStatus.SUCCESS:
+            if verification_result.status.value == VerificationStatus.SUCCESS.value:
                 if state.step_number >= self.total_steps(state):
                     self.on_complete(state)
                     if state.status == "running":

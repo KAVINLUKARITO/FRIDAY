@@ -108,7 +108,17 @@ def run_task(task: str) -> AgentState:
             state.status = "aborted"
             break
 
-        result = executor.run(validated_action)
+        try:
+            validated_action, result = executor.run_with_retries(
+                validated_action,
+                planner=planner,
+                validator=validator,
+                state=state,
+            )
+        except RuntimeError as exc:
+            logger.error("execution failed at step %s: %s", state.step_number, exc)
+            state.status = "aborted"
+            break
         verification_result = verifier.verify(validated_action, result)
 
         record = StepRecord(
@@ -135,6 +145,7 @@ def run_task(task: str) -> AgentState:
         )
 
         if verification_result.status is VerificationStatus.SUCCESS:
+            state.shared_context[validated_action.step_number] = result.output
             if not planner.has_more_steps(state):
                 state.status = "completed"
                 break

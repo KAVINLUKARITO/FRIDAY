@@ -4,7 +4,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from agents.base_agent import AgentState, BaseAgent
-from message_bus import Event, EventType
+from aiworker.message_bus import Event, EventType
 
 
 class ReconAgent(BaseAgent):

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from agents.base_agent import AgentState, BaseAgent
-from message_bus import Event, EventType
+from aiworker.message_bus import Event, EventType
 
 
 class ScannerAgent(BaseAgent):

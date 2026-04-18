@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import csv
+import importlib.util
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import quote_plus
 from urllib.parse import urlparse
 
 import httpx
@@ -39,10 +41,24 @@ def _relative_workspace_path(path: Path) -> str:
 def read_file(path: str) -> str:
     """Read and return the complete contents of a workspace file."""
 
-    resolved = _resolve_workspace_path(path)
-    if not resolved.exists() or not resolved.is_file():
-        raise ToolError(f"file does not exist: {path}")
-    return resolved.read_text(encoding="utf-8")
+    import os
+
+    path = path.strip()
+    if not path:
+        raise ToolError("file path is empty")
+
+    path_obj = Path(path)
+    if not path_obj.is_absolute():
+        path_obj = Path(os.getcwd()) / path_obj
+    path_obj = path_obj.resolve()
+
+    print(f"[TOOL] read_file -> resolved_path={path_obj}")
+
+    if not path_obj.exists() or not path_obj.is_file():
+        raise ToolError(f"file does not exist: {path_obj}")
+
+    with open(path_obj, "r", encoding="utf-8") as f:
+        return f.read()
 
 
 def write_file(path: str, content: str) -> str:
@@ -84,6 +100,16 @@ def http_get(url: str, timeout: float | None = None) -> str:
     return response.text
 
 
+def web_search(query: str) -> str:
+    """Return a stable DuckDuckGo search URL for the supplied query."""
+
+    normalized_query = query.strip()
+    if not normalized_query:
+        raise ToolError("search query is empty")
+    url = "https://duckduckgo.com/?q=" + quote_plus(normalized_query)
+    return f"Search results page: {url}"
+
+
 def parse_csv(path: str) -> list[dict[str, str]]:
     """Parse a workspace CSV file into a list of dictionaries."""
 
@@ -100,5 +126,40 @@ TOOL_REGISTRY: dict[str, Callable[..., Any]] = {
     "write_file": write_file,
     "list_files": list_files,
     "http_get": http_get,
+    "web_search": web_search,
     "parse_csv": parse_csv,
 }
+
+
+def _load_aiworker_tools() -> Any:
+    module_path = Path(__file__).resolve().parent / "aiworker" / "tools.py"
+    spec = importlib.util.spec_from_file_location("_aiworker_tools_compat", module_path)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.settings = settings
+    return module
+
+
+_AIWORKER_TOOLS = _load_aiworker_tools()
+if _AIWORKER_TOOLS is not None:
+    SafetyError = getattr(_AIWORKER_TOOLS, "SafetyError")
+    ToolError = getattr(_AIWORKER_TOOLS, "ToolError")
+    _SECURITY_HEADERS = getattr(_AIWORKER_TOOLS, "_SECURITY_HEADERS")
+    socket = getattr(_AIWORKER_TOOLS, "socket")
+    for _name in (
+        "safe_resolve",
+        "parse_html",
+        "http_request",
+        "scan_headers",
+        "check_sql_injection",
+        "check_xss",
+        "port_scan",
+        "get_market_data",
+        "calculate_indicators",
+        "place_order",
+        "get_portfolio",
+    ):
+        globals()[_name] = getattr(_AIWORKER_TOOLS, _name)
+        TOOL_REGISTRY[_name] = globals()[_name]

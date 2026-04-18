@@ -5,8 +5,8 @@ from enum import Enum
 
 from pydantic import BaseModel
 
-from executor import ExecutionResult
-from validator import ValidatedAction
+from aiworker.executor import ExecutionResult
+from aiworker.validator import ValidatedAction
 
 
 class VerificationStatus(str, Enum):

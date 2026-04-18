@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError as PydanticValidationError
 
-from tools import TOOL_REGISTRY
+from aiworker.tools import TOOL_REGISTRY
 
 
 class Action(BaseModel):

@@ -4,10 +4,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from message_bus import EventType, bus
-from runner import run_bug_bounty, run_trading_lab
-from storage import Storage
-from config import settings
+from aiworker.config import settings
+from aiworker.message_bus import EventType, bus
+from aiworker.runner import run_bug_bounty, run_trading_lab
+from aiworker.storage import Storage
 
 BUG_BOUNTY_BENCHMARKS: list[dict[str, str]] = [
     {"task": "scan localhost for headers", "expect_tool": "scan_headers", "expect_event": "report.ready"},

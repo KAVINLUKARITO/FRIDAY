@@ -24,7 +24,7 @@ from aiworker.pipeline.state import AgentState
 from aiworker.pipeline.validator import Validator
 from aiworker.pipeline.verifier import Verifier
 from aiworker.safety.safety_cage import SafetyCage, SafetyViolation
-from aiworker.tools.tool_registry import ToolRegistry, tool_registr
+from aiworker.tools.tool_registry import ToolRegistry, tool_registry
 from aiworker.llm.ollama_backend import OllamaBackend
 
 logger = logging.getLogger(__name__)

@@ -15,8 +15,8 @@ from uuid import uuid4
 import httpx
 from bs4 import BeautifulSoup
 
-from config import settings
-from logger import get_logger
+from aiworker.config import settings
+from aiworker.logger import get_logger
 
 logger = get_logger("tools")
 

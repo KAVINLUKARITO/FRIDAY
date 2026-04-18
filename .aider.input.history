@@ -1,0 +1,51 @@
+
+# 2026-04-16 05:10:10.804903
++n
+
+# 2026-04-16 05:10:43.498492
++Fix bugs in aiworker/llm/ollama_backend.py.
+
+# 2026-04-16 05:38:21.764933
++n
+
+# 2026-04-16 05:40:03.621309
++- Use router.generate(ModelRole.PLANNER, prompt)
+
+# 2026-04-16 05:53:21.659313
++- Return only tool name
+
+# 2026-04-16 05:55:26.397608
++n
+
+# 2026-04-16 05:55:43.277594
++/test
+
+# 2026-04-16 05:57:28.722491
++/add F-R-I-D-A-Y
+
+# 2026-04-16 05:57:38.317403
++N
+
+# 2026-04-16 05:57:59.007576
++/add aiworker
+
+# 2026-04-16 05:58:26.304165
++/ask where is tool selection logic implemented?
+
+# 2026-04-16 05:59:06.722521
++y
+
+# 2026-04-16 06:00:18.123244
++n
+
+# 2026-04-16 06:00:56.043101
++/add aiworker
+
+# 2026-04-16 06:01:23.093118
++Perform a strict code audit.
+
+# 2026-04-16 06:11:56.966296
++Check for:
+
+# 2026-04-16 06:11:58.147163
++- exceptions (try/except misuse, unhandled errors)

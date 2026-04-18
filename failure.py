@@ -29,7 +29,7 @@ class Severity(str, Enum):
 
 @dataclass(slots=True)
 class ClassifiedFailure:
-    type: FailureKind
+    type: FailureType
     message: str
     retryable: bool
     source_module: str
@@ -47,11 +47,11 @@ class ClassifiedFailure:
 
     @property
     def severity(self) -> Severity:
-        if self.type == "system":
+        if self.type is FailureType.SYSTEM:
             return Severity.CRITICAL
-        if self.type == "timeout":
+        if self.type is FailureType.TIMEOUT:
             return Severity.HIGH
-        if self.type in {"verification", "loop"}:
+        if self.type in {FailureType.VALIDATION, FailureType.VERIFICATION, FailureType.LOOP}:
             return Severity.MEDIUM
         return Severity.LOW
 
@@ -64,19 +64,21 @@ class FailureClassifier:
     MAX_VERIFICATION_RETRIES = 1
     MAX_TIMEOUT_RETRIES = 1
 
-    def from_validation(self, result: Any, action: Any) -> ClassifiedFailure:
+    @classmethod
+    def from_validation(cls, result: Any, action: Any) -> ClassifiedFailure:
         reason = _read_attr(result, "reason") or _read_attr(result, "message") or "validation failed"
         return ClassifiedFailure(
-            type="validation",
+            type=FailureType.VALIDATION,
             message=str(reason),
             retryable=False,
             source_module="validator",
             action_id=_action_id(action),
         )
 
-    def from_execution(self, result: Any, action: Any) -> ClassifiedFailure:
+    @classmethod
+    def from_execution(cls, result: Any, action: Any) -> ClassifiedFailure:
         timed_out = bool(_read_attr(result, "timed_out", False))
-        failure_type: FailureKind = "timeout" if timed_out else "execution"
+        failure_type = FailureType.TIMEOUT if timed_out else FailureType.EXECUTION
         message = (
             _read_attr(result, "error")
             or _read_attr(result, "message")
@@ -90,20 +92,22 @@ class FailureClassifier:
             action_id=_action_id(action) or _read_attr(result, "action_id"),
         )
 
-    def from_verification(self, result: Any, action: Any) -> ClassifiedFailure:
+    @classmethod
+    def from_verification(cls, result: Any, action: Any) -> ClassifiedFailure:
         reason = _read_attr(result, "reason") or _read_attr(result, "message") or "verification failed"
         return ClassifiedFailure(
-            type="verification",
+            type=FailureType.VERIFICATION,
             message=str(reason),
             retryable=True,
             source_module="verifier",
             action_id=_action_id(action),
         )
 
-    def from_exception(self, exc: Exception, source: str, action_id: str | None) -> ClassifiedFailure:
+    @classmethod
+    def from_exception(cls, exc: Exception, source: str, action_id: str | None) -> ClassifiedFailure:
         if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
             return ClassifiedFailure(
-                type="timeout",
+                type=FailureType.TIMEOUT,
                 message=str(exc) or "operation timed out",
                 retryable=True,
                 source_module=source,
@@ -111,7 +115,7 @@ class FailureClassifier:
                 raw_exception=str(exc),
             )
         return ClassifiedFailure(
-            type="system",
+            type=FailureType.SYSTEM,
             message=str(exc) or exc.__class__.__name__,
             retryable=False,
             source_module=source,
@@ -119,38 +123,42 @@ class FailureClassifier:
             raw_exception=str(exc),
         )
 
-    def is_retryable(self, failure: ClassifiedFailure) -> bool:
+    @classmethod
+    def is_retryable(cls, failure: ClassifiedFailure) -> bool:
         return failure.retryable
 
-    def retry_limit_for(self, failure: ClassifiedFailure) -> int:
-        if failure.type == "execution":
-            return self.MAX_EXECUTION_RETRIES
-        if failure.type == "verification":
-            return self.MAX_VERIFICATION_RETRIES
-        if failure.type == "timeout":
-            return self.MAX_TIMEOUT_RETRIES
+    @classmethod
+    def retry_limit_for(cls, failure: ClassifiedFailure) -> int:
+        if failure.type is FailureType.EXECUTION:
+            return cls.MAX_EXECUTION_RETRIES
+        if failure.type is FailureType.VERIFICATION:
+            return cls.MAX_VERIFICATION_RETRIES
+        if failure.type is FailureType.TIMEOUT:
+            return cls.MAX_TIMEOUT_RETRIES
         return 0
 
-    def classify_validation_error(self, message: str, context: dict[str, Any]) -> ClassifiedFailure:
+    @classmethod
+    def classify_validation_error(cls, message: str, context: dict[str, Any]) -> ClassifiedFailure:
         action_id = _context_action_id(context)
         return ClassifiedFailure(
-            type="validation",
+            type=FailureType.VALIDATION,
             message=message,
             retryable=False,
             source_module="validator",
             action_id=action_id,
         )
 
+    @classmethod
     def classify_execution_error(
-        self,
+        cls,
         exc: Exception,
         context: dict[str, Any],
         retryable: bool = True,
     ) -> ClassifiedFailure:
-        failure = self.from_exception(exc, "executor", _context_action_id(context))
-        if failure.type == "system":
+        failure = cls.from_exception(exc, "executor", _context_action_id(context))
+        if failure.type is FailureType.SYSTEM:
             failure = ClassifiedFailure(
-                type="execution",
+                type=FailureType.EXECUTION,
                 message=failure.message,
                 retryable=retryable,
                 source_module="executor",
@@ -159,17 +167,19 @@ class FailureClassifier:
             )
         return failure
 
-    def classify_verification_error(self, message: str, context: dict[str, Any]) -> ClassifiedFailure:
+    @classmethod
+    def classify_verification_error(cls, message: str, context: dict[str, Any]) -> ClassifiedFailure:
         return ClassifiedFailure(
-            type="verification",
+            type=FailureType.VERIFICATION,
             message=message,
             retryable=True,
             source_module="verifier",
             action_id=_context_action_id(context),
         )
 
-    def classify_system_error(self, exc: Exception, context: dict[str, Any]) -> ClassifiedFailure:
-        return self.from_exception(exc, "supervisor", _context_action_id(context))
+    @classmethod
+    def classify_system_error(cls, exc: Exception, context: dict[str, Any]) -> ClassifiedFailure:
+        return cls.from_exception(exc, "supervisor", _context_action_id(context))
 
 
 _DEFAULT_CLASSIFIER = FailureClassifier()

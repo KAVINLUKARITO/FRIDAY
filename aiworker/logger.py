@@ -4,7 +4,7 @@ import logging
 import sys
 from pathlib import Path
 
-from config import settings
+from aiworker.config import settings
 
 LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 

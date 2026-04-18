@@ -88,3 +88,32 @@ def test_timed_out_is_false_on_normal_execution(
     result = Executor().run(validated_action)
 
     assert result.timed_out is False
+
+
+def test_read_file_requires_non_empty_path_parameter() -> None:
+    action = ValidatedAction(
+        tool_name="read_file",
+        parameters={},
+        reason="Read file",
+        step_number=1,
+        checksum="abc123",
+    )
+
+    with pytest.raises(ToolError, match="read_file requires a non-empty 'path' parameter"):
+        Executor().run(action)
+
+
+def test_read_file_fails_when_tool_returns_empty_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    action = ValidatedAction(
+        tool_name="read_file",
+        parameters={"path": "sample.txt"},
+        reason="Read file",
+        step_number=1,
+        checksum="abc123",
+    )
+    monkeypatch.setitem(executor.TOOL_REGISTRY, "read_file", lambda path: "")
+
+    with pytest.raises(ToolError, match="read_file returned empty content"):
+        Executor().run(action)

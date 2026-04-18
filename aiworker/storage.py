@@ -109,7 +109,19 @@ class Storage:
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_vulnerabilities_run_id ON vulnerabilities(run_id);"
             )
+            self._ensure_step_columns(connection)
             connection.commit()
+
+    @staticmethod
+    def _ensure_step_columns(connection: sqlite3.Connection) -> None:
+        columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(steps);").fetchall()
+        }
+        if "agent_name" not in columns:
+            connection.execute(
+                "ALTER TABLE steps ADD COLUMN agent_name TEXT DEFAULT '';"
+            )
 
     def save_step(self, record: StepRecord) -> None:
         with sqlite3.connect(self.db_path) as connection:

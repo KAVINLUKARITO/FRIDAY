@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -20,6 +21,7 @@ class AgentState(BaseModel):
     task: str
     step_number: int = 1
     history: list[StepRecord] = Field(default_factory=list)
+    shared_context: dict[int, Any] = Field(default_factory=dict)
     retries: int = 0
     replans: int = 0
     status: str = "running"

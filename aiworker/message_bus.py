@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 from pydantic import BaseModel, Field
 
-from logger import get_logger
+from aiworker.logger import get_logger
 
 
 class EventType(str, Enum):

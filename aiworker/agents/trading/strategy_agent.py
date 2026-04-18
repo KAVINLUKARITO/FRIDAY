@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from agents.base_agent import AgentState, BaseAgent
+from aiworker.message_bus import Event, EventType
 from config import settings
-from message_bus import Event, EventType
 
 
 class StrategyAgent(BaseAgent):
