@@ -1,0 +1,210 @@
+{
+  "run_id": "798c98bc",
+  "result": {
+    "run_id": "798c98bc",
+    "task": "search python asyncio then summarize results",
+    "steps_completed": 0,
+    "failures": [
+      {
+        "step": "web_search",
+        "reason": "tool output did not satisfy task intent"
+      },
+      {
+        "step": "summarize_file",
+        "reason": "tool output did not satisfy task intent"
+      }
+    ],
+    "final_summary": {
+      "summary": "Dict with keys: ['os', 'cpu', 'memory', 'python_version']",
+      "type": "dict",
+      "key_info": [
+        "os",
+        "cpu",
+        "memory",
+        "python_version"
+      ]
+    },
+    "goal_achieved": false,
+    "goal_evidence": "tool output did not satisfy task intent",
+    "suggested_next_task": null
+  },
+  "trace": [
+    {
+      "ts": "2026-04-21T05:37:58.440883+00:00",
+      "event": "PLAN",
+      "data": {
+        "steps": [
+          {
+            "step": 1,
+            "task": "web_search"
+          },
+          {
+            "step": 2,
+            "task": "summarize_file"
+          }
+        ]
+      }
+    },
+    {
+      "ts": "2026-04-21T05:41:13.607413+00:00",
+      "event": "TOOL_SELECTED",
+      "data": {
+        "step": "web_search",
+        "tool": "web_search",
+        "arguments": {
+          "query": ""
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T05:41:31.251553+00:00",
+      "event": "TOOL_SELECTED",
+      "data": {
+        "step": "web_search",
+        "tool": "web_search",
+        "arguments": {
+          "query": ""
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T05:42:02.447732+00:00",
+      "event": "TOOL_SELECTED",
+      "data": {
+        "step": "web_search",
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T05:42:02.923335+00:00",
+      "event": "RESULT_SUMMARY",
+      "data": {
+        "step": "web_search",
+        "summary": {
+          "summary": "List of 9052 items. Preview: ['.aider.chat.history.md', '.aider.input.history', '.aider.tags.cache.v4/cache.db']",
+          "type": "list",
+          "key_info": [
+            ".aider.chat.history.md",
+            ".aider.input.history",
+            ".aider.tags.cache.v4/cache.db"
+          ]
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T05:42:02.923429+00:00",
+      "event": "CRITIC_SCORE",
+      "data": {
+        "step": "web_search",
+        "verdict": {
+          "score": 0.0,
+          "decision": "incorrect",
+          "reason": "tool output did not satisfy task intent",
+          "suggested_tool": "web_search"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T05:42:02.924034+00:00",
+      "event": "MEMORY_WRITE",
+      "data": {
+        "task": "web_search",
+        "tool": "list_files",
+        "success": false,
+        "score": 0.0,
+        "timestamp": "2026-04-21T05:42:02.923442"
+      }
+    },
+    {
+      "ts": "2026-04-21T05:42:02.924089+00:00",
+      "event": "STEP_FAILED",
+      "data": {
+        "step": "web_search",
+        "reason": "tool output did not satisfy task intent"
+      }
+    },
+    {
+      "ts": "2026-04-21T05:42:48.937844+00:00",
+      "event": "TOOL_SELECTED",
+      "data": {
+        "step": "summarize_file",
+        "tool": "summarize_file",
+        "arguments": {
+          "path": "string"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T05:43:13.945648+00:00",
+      "event": "TOOL_SELECTED",
+      "data": {
+        "step": "summarize_file",
+        "tool": "summarize_file",
+        "arguments": {
+          "path": "<path_to_file>"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T05:43:51.738683+00:00",
+      "event": "TOOL_SELECTED",
+      "data": {
+        "step": "summarize_file",
+        "tool": "system_info",
+        "arguments": {}
+      }
+    },
+    {
+      "ts": "2026-04-21T05:43:51.740525+00:00",
+      "event": "RESULT_SUMMARY",
+      "data": {
+        "step": "summarize_file",
+        "summary": {
+          "summary": "Dict with keys: ['os', 'cpu', 'memory', 'python_version']",
+          "type": "dict",
+          "key_info": [
+            "os",
+            "cpu",
+            "memory",
+            "python_version"
+          ]
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T05:43:51.740644+00:00",
+      "event": "CRITIC_SCORE",
+      "data": {
+        "step": "summarize_file",
+        "verdict": {
+          "score": 0.0,
+          "decision": "incorrect",
+          "reason": "tool output did not satisfy task intent",
+          "suggested_tool": "summarize_file"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T05:43:51.741281+00:00",
+      "event": "MEMORY_WRITE",
+      "data": {
+        "task": "summarize_file",
+        "tool": "system_info",
+        "success": false,
+        "score": 0.0,
+        "timestamp": "2026-04-21T05:43:51.740658"
+      }
+    },
+    {
+      "ts": "2026-04-21T05:43:51.741356+00:00",
+      "event": "STEP_FAILED",
+      "data": {
+        "step": "summarize_file",
+        "reason": "tool output did not satisfy task intent"
+      }
+    }
+  ]
+}

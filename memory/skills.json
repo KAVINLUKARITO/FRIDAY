@@ -1,0 +1,336 @@
+[
+  {
+    "name": "list python files",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.9
+      }
+    ],
+    "avg_score": 0.9,
+    "saved_at": "2026-04-21T04:15:58.658620+00:00",
+    "use_count": 2
+  },
+  {
+    "name": "analyze the project, list all python files, and su",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {},
+        "score": 0.85
+      },
+      {
+        "tool": "summarize_file",
+        "arguments": {},
+        "score": 0.95
+      }
+    ],
+    "avg_score": 0.8999999999999999,
+    "saved_at": "2026-04-21T04:16:07.238886+00:00",
+    "use_count": 1
+  },
+  {
+    "name": "what files are in this directory",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.85
+      }
+    ],
+    "avg_score": 0.85,
+    "saved_at": "2026-04-21T04:16:09.709703+00:00",
+    "use_count": 0
+  },
+  {
+    "name": "list all python files",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.85
+      }
+    ],
+    "avg_score": 0.85,
+    "saved_at": "2026-04-21T04:18:15.146929+00:00",
+    "use_count": 1
+  },
+  {
+    "name": "write a python script that prints hello world to o",
+    "steps": [
+      {
+        "tool": "write_code",
+        "arguments": {
+          "filename": "output/hello.py",
+          "language": "python",
+          "description": "write a python script that prints hello world to"
+        },
+        "score": 0.95
+      }
+    ],
+    "avg_score": 0.95,
+    "saved_at": "2026-04-21T04:30:37.150769+00:00",
+    "use_count": 0
+  },
+  {
+    "name": "lint the file friday/planner.py",
+    "steps": [
+      {
+        "tool": "lint_file",
+        "arguments": {
+          "path": "friday/planner.py"
+        },
+        "score": 0.95
+      }
+    ],
+    "avg_score": 0.95,
+    "saved_at": "2026-04-21T04:31:16.022354+00:00",
+    "use_count": 0
+  },
+  {
+    "name": "read the main entry point",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.85
+      }
+    ],
+    "avg_score": 0.85,
+    "saved_at": "2026-04-21T04:31:48.323679+00:00",
+    "use_count": 0
+  },
+  {
+    "name": "summarize what it does",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.85
+      }
+    ],
+    "avg_score": 0.85,
+    "saved_at": "2026-04-21T04:31:48.812457+00:00",
+    "use_count": 0
+  },
+  {
+    "name": "explore the project structure, read the main entry",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {},
+        "score": 0.85
+      },
+      {
+        "tool": "list_files",
+        "arguments": {},
+        "score": 0.85
+      },
+      {
+        "tool": "list_files",
+        "arguments": {},
+        "score": 0.85
+      }
+    ],
+    "avg_score": 0.85,
+    "saved_at": "2026-04-21T04:31:48.814542+00:00",
+    "use_count": 0
+  },
+  {
+    "name": "list files",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.85
+      }
+    ],
+    "avg_score": 0.85,
+    "saved_at": "2026-04-21T04:33:13.016223+00:00",
+    "use_count": 0
+  },
+  {
+    "name": "list files in memory directory",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.85
+      },
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.85
+      }
+    ],
+    "avg_score": 0.85,
+    "saved_at": "2026-04-21T04:33:14.356379+00:00",
+    "use_count": 0
+  },
+  {
+    "name": "list files in agents directory",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.85
+      },
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.85
+      }
+    ],
+    "avg_score": 0.85,
+    "saved_at": "2026-04-21T04:33:15.699431+00:00",
+    "use_count": 0
+  },
+  {
+    "name": "list all files in the current directory",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.85
+      },
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.85
+      }
+    ],
+    "avg_score": 0.85,
+    "saved_at": "2026-04-21T04:45:25.544717+00:00",
+    "use_count": 3
+  },
+  {
+    "name": "execute python code: print(2 + 2)",
+    "steps": [
+      {
+        "tool": "execute_python",
+        "arguments": {
+          "code": "print(2 + 2)"
+        },
+        "score": 0.95
+      }
+    ],
+    "avg_score": 0.95,
+    "saved_at": "2026-04-21T04:59:03.652538+00:00",
+    "use_count": 2
+  },
+  {
+    "name": "explore the project structure",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.85
+      }
+    ],
+    "avg_score": 0.85,
+    "saved_at": "2026-04-21T04:59:38.665777+00:00",
+    "use_count": 2
+  },
+  {
+    "name": "summarize runner.py",
+    "steps": [
+      {
+        "tool": "summarize_file",
+        "arguments": {
+          "path": "runner.py"
+        },
+        "score": 0.95
+      }
+    ],
+    "avg_score": 0.95,
+    "saved_at": "2026-04-21T04:59:38.686158+00:00",
+    "use_count": 2
+  },
+  {
+    "name": "explore the project structure then read the main e",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {},
+        "score": 0.85
+      },
+      {
+        "tool": "read_file",
+        "arguments": {},
+        "score": 0.7
+      },
+      {
+        "tool": "summarize_file",
+        "arguments": {},
+        "score": 0.95
+      }
+    ],
+    "avg_score": 0.8333333333333334,
+    "saved_at": "2026-04-21T04:59:38.689408+00:00",
+    "use_count": 0
+  },
+  {
+    "name": "list all python files then read executor.py",
+    "steps": [
+      {
+        "tool": "list_files",
+        "arguments": {
+          "path": "."
+        },
+        "score": 0.85
+      },
+      {
+        "tool": "read_file",
+        "arguments": {
+          "path": "executor.py"
+        },
+        "score": 0.7
+      }
+    ],
+    "avg_score": 0.7749999999999999,
+    "saved_at": "2026-04-21T05:00:16.331782+00:00",
+    "use_count": 1
+  },
+  {
+    "name": "search python asyncio documentation",
+    "steps": [
+      {
+        "tool": "web_search",
+        "arguments": {
+          "query": "python asyncio documentation"
+        },
+        "score": 0.85
+      }
+    ],
+    "avg_score": 0.85,
+    "saved_at": "2026-04-21T05:00:22.916948+00:00",
+    "use_count": 0
+  }
+]

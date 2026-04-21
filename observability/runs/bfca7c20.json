@@ -1,0 +1,82 @@
+{
+  "run_id": "bfca7c20",
+  "result": {
+    "run_id": "bfca7c20",
+    "task": "search python asyncio documentation",
+    "steps_completed": 1,
+    "failures": [],
+    "final_summary": {
+      "summary": "List of 1 items. Preview: [\"{'title': 'Python asyncio documentation', 'url': 'https://docs.python.org/3/libr\"]",
+      "type": "list",
+      "key_info": [
+        "{'title': 'Python asyncio documentation', 'url': 'https://docs.python.org/3/libr"
+      ]
+    },
+    "goal_achieved": true,
+    "goal_evidence": "List of 1 items. Preview: [\"{'title': 'Python asyncio documentation', 'url': 'https://docs.python.org/3/libr\"]",
+    "suggested_next_task": "fetch one of the returned URLs"
+  },
+  "trace": [
+    {
+      "ts": "2026-04-21T05:00:22.335453+00:00",
+      "event": "PLAN",
+      "data": {
+        "steps": [
+          {
+            "step": 1,
+            "task": "search python asyncio documentation"
+          }
+        ]
+      }
+    },
+    {
+      "ts": "2026-04-21T05:00:22.337691+00:00",
+      "event": "TOOL_SELECTED",
+      "data": {
+        "step": "search python asyncio documentation",
+        "tool": "web_search",
+        "arguments": {
+          "query": "python asyncio documentation"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T05:00:22.915522+00:00",
+      "event": "RESULT_SUMMARY",
+      "data": {
+        "step": "search python asyncio documentation",
+        "summary": {
+          "summary": "List of 1 items. Preview: [\"{'title': 'Python asyncio documentation', 'url': 'https://docs.python.org/3/libr\"]",
+          "type": "list",
+          "key_info": [
+            "{'title': 'Python asyncio documentation', 'url': 'https://docs.python.org/3/libr"
+          ]
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T05:00:22.915768+00:00",
+      "event": "CRITIC_SCORE",
+      "data": {
+        "step": "search python asyncio documentation",
+        "verdict": {
+          "score": 0.85,
+          "decision": "correct",
+          "reason": "tool returned non-empty list output",
+          "suggested_tool": "web_search"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T05:00:22.916339+00:00",
+      "event": "MEMORY_WRITE",
+      "data": {
+        "task": "search python asyncio documentation",
+        "tool": "web_search",
+        "success": true,
+        "score": 0.85,
+        "timestamp": "2026-04-21T05:00:22.915783"
+      }
+    }
+  ]
+}

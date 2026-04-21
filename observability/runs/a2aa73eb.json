@@ -1,0 +1,78 @@
+{
+  "run_id": "a2aa73eb",
+  "result": {
+    "run_id": "a2aa73eb",
+    "task": "read config.yaml",
+    "steps_completed": 1,
+    "failures": [],
+    "final_summary": {
+      "summary": "max_retries: 1\nmax_replans: 1\nconfidence_threshold: 0.6\nmodel_name: \"llama3\"\ntool_log_level: \"INFO\"\nmemory_max_records: 500\nrun_command_timeout: 15\nweb_fetch_timeout: 15\nweb_search_timeout: 12\nwrite_code_timeout: 60\nexecute_python_timeout: 20\ndashboard_port: 8080\ndashboard_host: \"127.0.0.1\"\nplanner_",
+      "type": "text",
+      "key_info": []
+    },
+    "goal_achieved": true,
+    "goal_evidence": "max_retries: 1\nmax_replans: 1\nconfidence_threshold: 0.6\nmodel_name: \"llama3\"\ntool_log_level: \"INFO\"\nmemory_max_records: 500\nrun_command_timeout: 15\nweb_fetch_timeout: 15\nweb_search_timeout: 12\nwrite_code_timeout: 60\nexecute_python_timeout: 20\ndashboard_port: 8080\ndashboard_host: \"127.0.0.1\"\nplanner_",
+    "suggested_next_task": null
+  },
+  "trace": [
+    {
+      "ts": "2026-04-21T04:33:13.197332+00:00",
+      "event": "PLAN",
+      "data": {
+        "steps": [
+          {
+            "step": 1,
+            "task": "read config.yaml"
+          }
+        ]
+      }
+    },
+    {
+      "ts": "2026-04-21T04:33:13.199370+00:00",
+      "event": "TOOL_SELECTED",
+      "data": {
+        "step": "read config.yaml",
+        "tool": "read_file",
+        "arguments": {
+          "path": "config.yaml"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T04:33:13.200123+00:00",
+      "event": "RESULT_SUMMARY",
+      "data": {
+        "step": "read config.yaml",
+        "summary": {
+          "summary": "max_retries: 1\nmax_replans: 1\nconfidence_threshold: 0.6\nmodel_name: \"llama3\"\ntool_log_level: \"INFO\"\nmemory_max_records: 500\nrun_command_timeout: 15\nweb_fetch_timeout: 15\nweb_search_timeout: 12\nwrite_code_timeout: 60\nexecute_python_timeout: 20\ndashboard_port: 8080\ndashboard_host: \"127.0.0.1\"\nplanner_",
+          "type": "text",
+          "key_info": []
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T04:33:13.200159+00:00",
+      "event": "CRITIC_SCORE",
+      "data": {
+        "step": "read config.yaml",
+        "verdict": {
+          "score": 0.7,
+          "decision": "correct",
+          "reason": "tool returned non-empty text output",
+          "suggested_tool": "read_file"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T04:33:13.200519+00:00",
+      "event": "MEMORY_WRITE",
+      "data": {
+        "task": "read config.yaml",
+        "tool": "read_file",
+        "success": true,
+        "score": 0.7,
+        "timestamp": "2026-04-21T04:33:13.200168"
+      }
+    }
+  ]
+}

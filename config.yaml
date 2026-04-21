@@ -1,0 +1,17 @@
+max_retries: 1
+max_replans: 1
+confidence_threshold: 0.6
+model_name: "llama3:8b"
+tool_log_level: "INFO"
+memory_max_records: 500
+run_command_timeout: 15
+web_fetch_timeout: 15
+web_search_timeout: 12
+write_code_timeout: 60
+execute_python_timeout: 20
+dashboard_port: 8080
+dashboard_host: "127.0.0.1"
+planner_poll_interval: 2
+executor_poll_interval: 1
+executor_workers: 2
+supervisor_restart_delay: 3

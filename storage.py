@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
-
-
-class StepRecord(BaseModel):
+@dataclass
+class StepRecord:
     run_id: str
     step_number: int
     tool_name: str
@@ -23,7 +22,8 @@ class StepRecord(BaseModel):
     agent_name: str | None = None
 
 
-class TradeRecord(BaseModel):
+@dataclass
+class TradeRecord:
     run_id: str
     order_id: str
     symbol: str
@@ -35,7 +35,8 @@ class TradeRecord(BaseModel):
     pnl: float | None
 
 
-class VulnerabilityRecord(BaseModel):
+@dataclass
+class VulnerabilityRecord:
     run_id: str
     agent_name: str
     target: str

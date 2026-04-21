@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIWorker</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0d1117; --panel:#161b22; --line:#30363d; --text:#e6edf3; --muted:#8b949e; --good:#238636; --warn:#d29922; --bad:#da3633; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    nav, main { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+    nav { display:flex; gap:1rem; flex-wrap:wrap; border-bottom:1px solid var(--line); }
+    a { color: var(--text); text-decoration:none; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:1rem; margin:1rem 0; overflow:auto; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { text-align:left; padding:.75rem; border-bottom:1px solid var(--line); vertical-align:top; }
+    .badge { padding:.2rem .5rem; border-radius:999px; font-size:.85rem; }
+    .good { background:rgba(35,134,54,.2); color:#7ee787; }
+    .bad { background:rgba(218,54,51,.2); color:#ff7b72; }
+    .warn, .replan { background:rgba(210,153,34,.2); color:#f2cc60; }
+    pre { white-space:pre-wrap; word-break:break-word; }
+    @media (max-width: 700px) { th, td { padding:.5rem; font-size:.9rem; } }
+  </style>
+</head>
+<body>
+  <nav>
+    <strong>AIWorker</strong>
+    <a href="/">Runs</a>
+    <a href="/memory">Memory</a>
+    <a href="/goals">Goals</a>
+    <a href="/agents">Agents</a>
+    <a href="/logs">Live Logs</a>
+  </nav>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

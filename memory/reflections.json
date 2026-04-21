@@ -1,0 +1,439 @@
+[
+  {
+    "task": "what files are in this directory",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "search python requests library",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "read file runner.py",
+    "failures": [],
+    "success_pattern": "read_file",
+    "improvement": "prefer read_file"
+  },
+  {
+    "task": "read file runner.py",
+    "failures": [],
+    "success_pattern": "read_file",
+    "improvement": "prefer read_file"
+  },
+  {
+    "task": "read file runner.py",
+    "failures": [],
+    "success_pattern": "read_file",
+    "improvement": "prefer read_file"
+  },
+  {
+    "task": "what files are in this directory",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "read file runner.py",
+    "failures": [],
+    "success_pattern": "read_file",
+    "improvement": "prefer read_file"
+  },
+  {
+    "task": "what files are in this directory",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "write a python hello world to /tmp/hello.py",
+    "failures": [],
+    "success_pattern": "write_code",
+    "improvement": "prefer write_code"
+  },
+  {
+    "task": "execute the python file /tmp/hello.py",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "lint the file /tmp/hello.py",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "execute the python file /tmp/hello.py",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "lint the file /tmp/hello.py",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "write a python hello world to /tmp/hello.py",
+    "failures": [],
+    "success_pattern": "write_code",
+    "improvement": "prefer write_code"
+  },
+  {
+    "task": "lint the file /tmp/hello.py",
+    "failures": [],
+    "success_pattern": "lint_file",
+    "improvement": "prefer lint_file"
+  },
+  {
+    "task": "execute the python file /tmp/hello.py",
+    "failures": [],
+    "success_pattern": "execute_python_file",
+    "improvement": "prefer execute_python_file"
+  },
+  {
+    "task": "list all python files",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "summarize runner.py",
+    "failures": [],
+    "success_pattern": "summarize_file",
+    "improvement": "prefer summarize_file"
+  },
+  {
+    "task": "what files are in this directory",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "list all python files",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "summarize runner.py",
+    "failures": [],
+    "success_pattern": "summarize_file",
+    "improvement": "prefer summarize_file"
+  },
+  {
+    "task": "list all python files",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "summarize runner.py",
+    "failures": [],
+    "success_pattern": "summarize_file",
+    "improvement": "prefer summarize_file"
+  },
+  {
+    "task": "list all python files",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "summarize runner.py",
+    "failures": [],
+    "success_pattern": "summarize_file",
+    "improvement": "prefer summarize_file"
+  },
+  {
+    "task": "list all files in the current directory",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "read the file config.yaml",
+    "failures": [],
+    "success_pattern": "read_file",
+    "improvement": "prefer read_file"
+  },
+  {
+    "task": "read file runner.py",
+    "failures": [],
+    "success_pattern": "read_file",
+    "improvement": "prefer read_file"
+  },
+  {
+    "task": "list all python files then read executor.py",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "write a python script that prints hello world to output/hello.py",
+    "failures": [],
+    "success_pattern": "write_code",
+    "improvement": "prefer write_code"
+  },
+  {
+    "task": "execute python code: print(2 + 2)",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "search for python asyncio documentation",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "lint the file friday/planner.py",
+    "failures": [],
+    "success_pattern": "lint_file",
+    "improvement": "prefer lint_file"
+  },
+  {
+    "task": "explore the project structure",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "read the main entry point",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "summarize what it does",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "list files",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "read config.yaml",
+    "failures": [],
+    "success_pattern": "read_file",
+    "improvement": "prefer read_file"
+  },
+  {
+    "task": "list files in memory directory",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "read runner.py",
+    "failures": [],
+    "success_pattern": "read_file",
+    "improvement": "prefer read_file"
+  },
+  {
+    "task": "list files in agents directory",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "list all files in the current directory",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "list all files in the current directory",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "list all files in the current directory",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "list all python files then read executor.py",
+    "failures": [
+      {
+        "step": "list all python files then read executor.py",
+        "reason": "tool output did not satisfy task intent"
+      }
+    ],
+    "success_pattern": "none",
+    "improvement": "replan more aggressively"
+  },
+  {
+    "task": "execute python code: print(2 + 2)",
+    "failures": [],
+    "success_pattern": "execute_python",
+    "improvement": "prefer execute_python"
+  },
+  {
+    "task": "search for python asyncio documentation",
+    "failures": [
+      {
+        "step": "search for python asyncio documentation",
+        "reason": "tool output did not satisfy task intent"
+      }
+    ],
+    "success_pattern": "none",
+    "improvement": "replan more aggressively"
+  },
+  {
+    "task": "explore the project structure",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "read runner.py",
+    "failures": [],
+    "success_pattern": "read_file",
+    "improvement": "prefer read_file"
+  },
+  {
+    "task": "summarize runner.py",
+    "failures": [],
+    "success_pattern": "summarize_file",
+    "improvement": "prefer summarize_file"
+  },
+  {
+    "task": "",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "list all files in the current directory",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "list all files in the current directory",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "list all python files then read executor.py",
+    "failures": [
+      {
+        "step": "list all python files",
+        "reason": "tool output did not satisfy task intent"
+      }
+    ],
+    "success_pattern": "read_file",
+    "improvement": "prefer read_file"
+  },
+  {
+    "task": "execute python code: print(2 + 2)",
+    "failures": [],
+    "success_pattern": "execute_python",
+    "improvement": "prefer execute_python"
+  },
+  {
+    "task": "",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "list all python files then read executor.py",
+    "failures": [
+      {
+        "step": "list all python files",
+        "reason": "tool output did not satisfy task intent"
+      }
+    ],
+    "success_pattern": "read_file",
+    "improvement": "prefer read_file"
+  },
+  {
+    "task": "explore the project structure",
+    "failures": [],
+    "success_pattern": "list_files",
+    "improvement": "prefer list_files"
+  },
+  {
+    "task": "read runner.py",
+    "failures": [],
+    "success_pattern": "read_file",
+    "improvement": "prefer read_file"
+  },
+  {
+    "task": "summarize runner.py",
+    "failures": [],
+    "success_pattern": "summarize_file",
+    "improvement": "prefer summarize_file"
+  },
+  {
+    "task": "list all python files then read executor.py",
+    "failures": [],
+    "success_pattern": "read_file",
+    "improvement": "prefer read_file"
+  },
+  {
+    "task": "search python asyncio documentation",
+    "failures": [],
+    "success_pattern": "web_search",
+    "improvement": "prefer web_search"
+  },
+  {
+    "task": "search python asyncio then summarize results",
+    "failures": [
+      {
+        "step": "search python asyncio",
+        "reason": "tool output did not satisfy task intent"
+      },
+      {
+        "step": "summarize results",
+        "reason": "tool output did not satisfy task intent"
+      }
+    ],
+    "success_pattern": "none",
+    "improvement": "replan more aggressively"
+  },
+  {
+    "task": "search python asyncio then summarize results",
+    "failures": [
+      {
+        "step": "search python asyncio",
+        "reason": "tool output did not satisfy task intent"
+      },
+      {
+        "step": "summarize results",
+        "reason": "tool output did not satisfy task intent"
+      }
+    ],
+    "success_pattern": "none",
+    "improvement": "replan more aggressively"
+  },
+  {
+    "task": "search python asyncio then summarize results",
+    "failures": [
+      {
+        "step": "web_search",
+        "reason": "tool output did not satisfy task intent"
+      },
+      {
+        "step": "summarize_file",
+        "reason": "tool output did not satisfy task intent"
+      }
+    ],
+    "success_pattern": "none",
+    "improvement": "replan more aggressively"
+  }
+]

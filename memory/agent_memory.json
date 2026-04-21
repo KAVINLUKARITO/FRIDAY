@@ -1,0 +1,618 @@
+[
+  {
+    "task": "what files are in this directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.9,
+    "timestamp": "2026-04-21T03:43:32.632722"
+  },
+  {
+    "task": "search python requests library",
+    "tool": "web_search",
+    "success": false,
+    "score": 0.1,
+    "timestamp": "2026-04-21T03:43:52.103746"
+  },
+  {
+    "task": "search python requests library",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.9,
+    "timestamp": "2026-04-21T03:43:52.575786"
+  },
+  {
+    "task": "read file runner.py",
+    "tool": "read_file",
+    "success": true,
+    "score": 0.9,
+    "timestamp": "2026-04-21T03:43:52.880000"
+  },
+  {
+    "task": "read file runner.py",
+    "tool": "read_file",
+    "success": true,
+    "score": 0.9,
+    "timestamp": "2026-04-21T03:44:09.088624"
+  },
+  {
+    "task": "read file runner.py",
+    "tool": "read_file",
+    "success": true,
+    "score": 0.9,
+    "timestamp": "2026-04-21T03:44:12.300855"
+  },
+  {
+    "task": "what files are in this directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.9,
+    "timestamp": "2026-04-21T03:44:12.779137"
+  },
+  {
+    "task": "read file runner.py",
+    "tool": "read_file",
+    "success": true,
+    "score": 0.9,
+    "timestamp": "2026-04-21T03:44:41.084742"
+  },
+  {
+    "task": "what files are in this directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.9,
+    "timestamp": "2026-04-21T03:44:41.561174"
+  },
+  {
+    "task": "write a python hello world to /tmp/hello.py",
+    "tool": "write_code",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:04:29.045964"
+  },
+  {
+    "task": "execute the python file /tmp/hello.py",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:04:31.397664"
+  },
+  {
+    "task": "lint the file /tmp/hello.py",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:04:32.209357"
+  },
+  {
+    "task": "execute the python file /tmp/hello.py",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:05:01.147532"
+  },
+  {
+    "task": "lint the file /tmp/hello.py",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:05:01.888379"
+  },
+  {
+    "task": "write a python hello world to /tmp/hello.py",
+    "tool": "write_code",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:05:02.322031"
+  },
+  {
+    "task": "lint the file /tmp/hello.py",
+    "tool": "lint_file",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:05:10.995428"
+  },
+  {
+    "task": "execute the python file /tmp/hello.py",
+    "tool": "execute_python_file",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:05:12.100579"
+  },
+  {
+    "task": "list all python files",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:16:07.231001"
+  },
+  {
+    "task": "summarize runner.py",
+    "tool": "summarize_file",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:16:07.236549"
+  },
+  {
+    "task": "what files are in this directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:16:09.709162"
+  },
+  {
+    "task": "list all python files",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:16:36.295436"
+  },
+  {
+    "task": "summarize runner.py",
+    "tool": "summarize_file",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:16:36.298534"
+  },
+  {
+    "task": "list all python files",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:17:06.513865"
+  },
+  {
+    "task": "summarize runner.py",
+    "tool": "summarize_file",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:17:06.518234"
+  },
+  {
+    "task": "list all python files",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:18:15.146374"
+  },
+  {
+    "task": "summarize runner.py",
+    "tool": "summarize_file",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:18:15.151025"
+  },
+  {
+    "task": "list all files in the current directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:28:36.834908"
+  },
+  {
+    "task": "list all files in the current directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:28:37.317518"
+  },
+  {
+    "task": "read the file config.yaml",
+    "tool": "read_file",
+    "success": true,
+    "score": 0.7,
+    "timestamp": "2026-04-21T04:29:13.860245"
+  },
+  {
+    "task": "read file runner.py",
+    "tool": "read_file",
+    "success": true,
+    "score": 0.7,
+    "timestamp": "2026-04-21T04:29:34.788624"
+  },
+  {
+    "task": "list all python files then read executor.py",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:29:45.908725"
+  },
+  {
+    "task": "write a python script that prints hello world to output/hello.py",
+    "tool": "write_code",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:30:37.150169"
+  },
+  {
+    "task": "execute python code: print(2 + 2)",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:30:53.954255"
+  },
+  {
+    "task": "search for python asyncio documentation",
+    "tool": "web_search",
+    "success": false,
+    "score": 0.1,
+    "timestamp": "2026-04-21T04:31:04.491232"
+  },
+  {
+    "task": "search for python asyncio documentation",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:31:04.976435"
+  },
+  {
+    "task": "lint the file friday/planner.py",
+    "tool": "lint_file",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:31:16.021710"
+  },
+  {
+    "task": "explore the project structure",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:31:47.834537"
+  },
+  {
+    "task": "read the main entry point",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:31:48.323090"
+  },
+  {
+    "task": "summarize what it does",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:31:48.811883"
+  },
+  {
+    "task": "list files",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:33:13.015582"
+  },
+  {
+    "task": "read config.yaml",
+    "tool": "read_file",
+    "success": true,
+    "score": 0.7,
+    "timestamp": "2026-04-21T04:33:13.200168"
+  },
+  {
+    "task": "list files in memory directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:33:13.865188"
+  },
+  {
+    "task": "list files in memory directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:33:14.355721"
+  },
+  {
+    "task": "read runner.py",
+    "tool": "read_file",
+    "success": true,
+    "score": 0.7,
+    "timestamp": "2026-04-21T04:33:14.561621"
+  },
+  {
+    "task": "list files in agents directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:33:15.222136"
+  },
+  {
+    "task": "list files in agents directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:33:15.698780"
+  },
+  {
+    "task": "list all files in the current directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:33:41.148709"
+  },
+  {
+    "task": "list all files in the current directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:33:41.628779"
+  },
+  {
+    "task": "list all files in the current directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:33:45.335807"
+  },
+  {
+    "task": "list all files in the current directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:33:45.811026"
+  },
+  {
+    "task": "list all files in the current directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:45:18.703367"
+  },
+  {
+    "task": "list all files in the current directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:45:19.220999"
+  },
+  {
+    "task": "list all python files then read executor.py",
+    "tool": "list_files",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T04:45:19.922962"
+  },
+  {
+    "task": "list all python files then read executor.py",
+    "tool": "read_file",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T04:45:19.926720"
+  },
+  {
+    "task": "execute python code: print(2 + 2)",
+    "tool": "list_files",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T04:45:20.650921"
+  },
+  {
+    "task": "execute python code: print(2 + 2)",
+    "tool": "execute_python",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:45:20.667154"
+  },
+  {
+    "task": "search for python asyncio documentation",
+    "tool": "web_search",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T04:45:21.280112"
+  },
+  {
+    "task": "search for python asyncio documentation",
+    "tool": "list_files",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T04:45:21.792505"
+  },
+  {
+    "task": "explore the project structure",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:45:22.483949"
+  },
+  {
+    "task": "read runner.py",
+    "tool": "read_file",
+    "success": true,
+    "score": 0.7,
+    "timestamp": "2026-04-21T04:45:22.490617"
+  },
+  {
+    "task": "summarize runner.py",
+    "tool": "summarize_file",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:45:22.494856"
+  },
+  {
+    "task": "",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:45:23.187365"
+  },
+  {
+    "task": "list all files in the current directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:45:23.874089"
+  },
+  {
+    "task": "list all files in the current directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:45:24.369071"
+  },
+  {
+    "task": "list all files in the current directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:45:25.050194"
+  },
+  {
+    "task": "list all files in the current directory",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:45:25.543927"
+  },
+  {
+    "task": "list all python files",
+    "tool": "list_files",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T04:59:02.730430"
+  },
+  {
+    "task": "list all python files",
+    "tool": "list_files",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T04:59:03.199790"
+  },
+  {
+    "task": "read executor.py",
+    "tool": "read_file",
+    "success": true,
+    "score": 0.7,
+    "timestamp": "2026-04-21T04:59:03.202529"
+  },
+  {
+    "task": "execute python code: print(2 + 2)",
+    "tool": "execute_python",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:59:03.651663"
+  },
+  {
+    "task": "",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:59:05.351338"
+  },
+  {
+    "task": "list all python files",
+    "tool": "list_files",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T04:59:37.563857"
+  },
+  {
+    "task": "list all python files",
+    "tool": "list_files",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T04:59:38.256197"
+  },
+  {
+    "task": "read executor.py",
+    "tool": "read_file",
+    "success": true,
+    "score": 0.7,
+    "timestamp": "2026-04-21T04:59:38.260621"
+  },
+  {
+    "task": "explore the project structure",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T04:59:38.664201"
+  },
+  {
+    "task": "read runner.py",
+    "tool": "read_file",
+    "success": true,
+    "score": 0.7,
+    "timestamp": "2026-04-21T04:59:38.674412"
+  },
+  {
+    "task": "summarize runner.py",
+    "tool": "summarize_file",
+    "success": true,
+    "score": 0.95,
+    "timestamp": "2026-04-21T04:59:38.682329"
+  },
+  {
+    "task": "list all python files",
+    "tool": "list_files",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T05:00:16.328129"
+  },
+  {
+    "task": "read executor.py",
+    "tool": "read_file",
+    "success": true,
+    "score": 0.7,
+    "timestamp": "2026-04-21T05:00:16.330914"
+  },
+  {
+    "task": "search python asyncio documentation",
+    "tool": "web_search",
+    "success": true,
+    "score": 0.85,
+    "timestamp": "2026-04-21T05:00:22.915783"
+  },
+  {
+    "task": "search python asyncio",
+    "tool": "web_search",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T05:08:36.945618"
+  },
+  {
+    "task": "search python asyncio",
+    "tool": "list_files",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T05:08:37.424003"
+  },
+  {
+    "task": "summarize results",
+    "tool": "list_files",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T05:08:37.923508"
+  },
+  {
+    "task": "search python asyncio",
+    "tool": "web_search",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T05:20:14.721749"
+  },
+  {
+    "task": "search python asyncio",
+    "tool": "list_files",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T05:20:15.195352"
+  },
+  {
+    "task": "summarize results",
+    "tool": "list_files",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T05:20:15.683961"
+  },
+  {
+    "task": "web_search",
+    "tool": "list_files",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T05:42:02.923442"
+  },
+  {
+    "task": "summarize_file",
+    "tool": "system_info",
+    "success": false,
+    "score": 0.0,
+    "timestamp": "2026-04-21T05:43:51.740658"
+  }
+]

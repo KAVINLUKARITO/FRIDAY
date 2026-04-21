@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import re
+import json
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
-
-from pydantic import BaseModel, Field
 
 from config import settings
 from storage import StepRecord
@@ -16,15 +16,32 @@ class PlannerMode(str, Enum):
     LLM = "llm"
 
 
-class AgentState(BaseModel):
+@dataclass
+class AgentState:
     run_id: str
     task: str
     step_number: int = 1
-    history: list[StepRecord] = Field(default_factory=list)
-    shared_context: dict[int, Any] = Field(default_factory=dict)
+    history: list[StepRecord] = field(default_factory=list)
+    shared_context: dict[int, Any] = field(default_factory=dict)
     retries: int = 0
     replans: int = 0
     status: str = "running"
+
+    def model_dump(self, mode: str | None = None) -> dict[str, Any]:
+        _ = mode
+        return {
+            "run_id": self.run_id,
+            "task": self.task,
+            "step_number": self.step_number,
+            "history": self.history,
+            "shared_context": self.shared_context,
+            "retries": self.retries,
+            "replans": self.replans,
+            "status": self.status,
+        }
+
+    def model_dump_json(self, indent: int | None = None) -> str:
+        return json.dumps(self.model_dump(), indent=indent, default=str)
 
 
 class Planner:

@@ -40,6 +40,7 @@ class ModelRouter:
         """Generate text from the backend bound to *role*."""
         if self._planner_backend is None or self._coder_backend is None:
             raise ValueError("planner_backend and coder_backend must be configured")
+        print(f"[MODEL ROUTER] Using model: {self._planner_backend.model_name}")
         if role is ModelRole.PLANNER:
             return self._planner_backend.generate(prompt)
         if role is ModelRole.CODER:

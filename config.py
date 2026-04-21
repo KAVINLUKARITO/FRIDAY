@@ -4,40 +4,95 @@ import os
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, field_validator
+
+_CONFIG_PATH = Path(__file__).resolve().parent / "config.yaml"
 
 
-class Settings(BaseModel):
+def _load_plain(path: str | Path) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    try:
+        with open(path, encoding="utf-8") as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if ":" in line:
+                    key, _, value = line.partition(":")
+                    value = value.strip().strip('"').strip("'")
+                    lowered = value.lower()
+                    if lowered in {"true", "false"}:
+                        result[key.strip()] = lowered == "true"
+                        continue
+                    try:
+                        result[key.strip()] = int(value)
+                    except ValueError:
+                        try:
+                            result[key.strip()] = float(value)
+                        except ValueError:
+                            result[key.strip()] = value
+    except Exception:
+        pass
+    return result
+
+
+try:
+    import yaml  # type: ignore
+
+    def _load() -> dict[str, Any]:
+        try:
+            with open(_CONFIG_PATH, encoding="utf-8") as handle:
+                loaded = yaml.safe_load(handle)
+            return loaded if isinstance(loaded, dict) else {}
+        except Exception:
+            return _load_plain(_CONFIG_PATH)
+
+except ImportError:
+
+    def _load() -> dict[str, Any]:
+        return _load_plain(_CONFIG_PATH)
+
+
+class Settings:
     """Application settings with environment variable overrides."""
 
-    model_config = ConfigDict(validate_assignment=True, arbitrary_types_allowed=True)
-
-    workspace_dir: Path = Path("workspace")
-    db_path: Path = Path("runtime/history.db")
-    max_steps: int = 20
-    max_retries: int = 3
-    max_replans: int = 2
-    retry_backoff_base: float = 1.0
-    http_timeout: float = 10.0
-    log_level: str = "INFO"
-    planner_mode: str = "echo"
-    bug_bounty_target: str = "http://localhost:8080"
-    safe_test_mode: bool = True
-    trading_mode: str = "paper"
-    trading_symbols: list[str] = ["BTCUSDT", "ETHUSDT"]
-    poll_interval_seconds: float = 5.0
-    initial_balance: float = 10000.0
-    max_position_pct: float = 0.10
-    stop_loss_pct: float = 0.02
-    ma_short: int = 5
-    ma_long: int = 20
-    binance_api_key: str = ""
-    binance_api_secret: str = ""
-
     def __init__(self, **data: Any) -> None:
-        merged = self._load_environment_values()
-        merged.update(data)
-        super().__init__(**merged)
+        defaults: dict[str, Any] = {
+            "workspace_dir": Path("workspace"),
+            "db_path": Path("runtime/history.db"),
+            "max_steps": 20,
+            "max_retries": 3,
+            "max_replans": 2,
+            "retry_backoff_base": 1.0,
+            "http_timeout": 10.0,
+            "log_level": "INFO",
+            "planner_mode": "echo",
+            "bug_bounty_target": "http://localhost:8080",
+            "safe_test_mode": True,
+            "trading_mode": "paper",
+            "trading_symbols": ["BTCUSDT", "ETHUSDT"],
+            "poll_interval_seconds": 5.0,
+            "initial_balance": 10000.0,
+            "max_position_pct": 0.10,
+            "stop_loss_pct": 0.02,
+            "ma_short": 5,
+            "ma_long": 20,
+            "binance_api_key": "",
+            "binance_api_secret": "",
+        }
+        defaults.update(self._load_environment_values())
+        defaults.update(data)
+        defaults["workspace_dir"] = Path(defaults["workspace_dir"])
+        defaults["db_path"] = Path(defaults["db_path"])
+        defaults["log_level"] = str(defaults["log_level"]).strip().upper() or "INFO"
+        defaults["planner_mode"] = self._normalize_choice(defaults["planner_mode"], {"echo", "llm"}, "echo")
+        defaults["trading_mode"] = self._normalize_choice(defaults["trading_mode"], {"paper", "live"}, "paper")
+        for key, value in defaults.items():
+            setattr(self, key, value)
+
+    @staticmethod
+    def _normalize_choice(value: Any, allowed: set[str], fallback: str) -> str:
+        normalized = str(value).strip().lower()
+        return normalized if normalized in allowed else fallback
 
     @staticmethod
     def _load_environment_values() -> dict[str, Any]:
@@ -74,50 +129,6 @@ class Settings(BaseModel):
                 values[field_name] = raw_value if caster is str else caster(raw_value)
         return values
 
-    @field_validator("max_steps", "max_retries", "max_replans", "ma_short", "ma_long")
-    @classmethod
-    def _validate_non_negative_int(cls, value: int) -> int:
-        if value < 0:
-            raise ValueError("must be non-negative")
-        return value
-
-    @field_validator(
-        "retry_backoff_base",
-        "http_timeout",
-        "poll_interval_seconds",
-        "initial_balance",
-        "max_position_pct",
-        "stop_loss_pct",
-    )
-    @classmethod
-    def _validate_positive_float(cls, value: float) -> float:
-        if value <= 0:
-            raise ValueError("must be greater than zero")
-        return value
-
-    @field_validator("log_level")
-    @classmethod
-    def _normalize_log_level(cls, value: str) -> str:
-        normalized = value.strip().upper()
-        if not normalized:
-            raise ValueError("log_level must not be empty")
-        return normalized
-
-    @field_validator("planner_mode")
-    @classmethod
-    def _normalize_planner_mode(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if normalized not in {"echo", "llm"}:
-            raise ValueError("planner_mode must be 'echo' or 'llm'")
-        return normalized
-
-    @field_validator("trading_mode")
-    @classmethod
-    def _normalize_trading_mode(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if normalized not in {"paper", "live"}:
-            raise ValueError("trading_mode must be 'paper' or 'live'")
-        return normalized
-
 
 settings = Settings()
+cfg = _load()

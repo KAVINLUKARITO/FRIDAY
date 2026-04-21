@@ -1,0 +1,95 @@
+{
+  "run_id": "805e2b7e",
+  "result": {
+    "run_id": "805e2b7e",
+    "task": "execute python code: print(2 + 2)",
+    "steps_completed": 1,
+    "failures": [],
+    "final_summary": {
+      "summary": "Dict with keys: ['success', 'stdout', 'stderr', 'returncode']",
+      "type": "dict",
+      "key_info": [
+        "success",
+        "stdout",
+        "stderr",
+        "returncode"
+      ]
+    },
+    "goal_achieved": true,
+    "goal_evidence": "Dict with keys: ['success', 'stdout', 'stderr', 'returncode']",
+    "suggested_next_task": null
+  },
+  "trace": [
+    {
+      "ts": "2026-04-21T04:59:03.638506+00:00",
+      "event": "PLAN",
+      "data": {
+        "steps": [
+          {
+            "step": 1,
+            "task": "execute python code: print(2 + 2)",
+            "tool_call": {
+              "tool": "execute_python",
+              "arguments": {
+                "code": "print(2 + 2)"
+              },
+              "confidence": 1.0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "ts": "2026-04-21T04:59:03.638518+00:00",
+      "event": "TOOL_SELECTED",
+      "data": {
+        "step": "execute python code: print(2 + 2)",
+        "tool": "execute_python",
+        "arguments": {
+          "code": "print(2 + 2)"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T04:59:03.651605+00:00",
+      "event": "RESULT_SUMMARY",
+      "data": {
+        "step": "execute python code: print(2 + 2)",
+        "summary": {
+          "summary": "Dict with keys: ['success', 'stdout', 'stderr', 'returncode']",
+          "type": "dict",
+          "key_info": [
+            "success",
+            "stdout",
+            "stderr",
+            "returncode"
+          ]
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T04:59:03.651653+00:00",
+      "event": "CRITIC_SCORE",
+      "data": {
+        "step": "execute python code: print(2 + 2)",
+        "verdict": {
+          "score": 0.95,
+          "decision": "correct",
+          "reason": "tool returned non-empty dict output",
+          "suggested_tool": "execute_python"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T04:59:03.652086+00:00",
+      "event": "MEMORY_WRITE",
+      "data": {
+        "task": "execute python code: print(2 + 2)",
+        "tool": "execute_python",
+        "success": true,
+        "score": 0.95,
+        "timestamp": "2026-04-21T04:59:03.651663"
+      }
+    }
+  ]
+}

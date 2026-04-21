@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+  <h2>Memory Records ({{ memory_records|length }})</h2>
+  <table>
+    <thead><tr><th>Task</th><th>Tool</th><th>Success</th><th>Score</th><th>Timestamp</th></tr></thead>
+    <tbody>
+      {% for record in memory_records %}
+      <tr>
+        <td>{{ record.task }}</td>
+        <td>{{ record.tool }}</td>
+        <td><span class="badge {{ 'good' if record.success else 'bad' }}">{{ record.success }}</span></td>
+        <td>{{ record.score }}</td>
+        <td>{{ record.timestamp }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="panel">
+  <h2>Reflections ({{ reflections|length }})</h2>
+  <table>
+    <thead><tr><th>Task</th><th>Failures</th><th>Success Pattern</th><th>Improvement</th></tr></thead>
+    <tbody>
+      {% for reflection in reflections %}
+      <tr>
+        <td>{{ reflection.task }}</td>
+        <td>{{ reflection.failures|length }}</td>
+        <td>{{ reflection.success_pattern }}</td>
+        <td>{{ reflection.improvement }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

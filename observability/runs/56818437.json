@@ -1,0 +1,90 @@
+{
+  "run_id": "56818437",
+  "result": {
+    "task": "write a python hello world to /tmp/hello.py",
+    "steps_completed": 1,
+    "failures": [],
+    "final_summary": {
+      "summary": "Dict with keys: ['success', 'filename', 'language', 'lines', 'preview']",
+      "type": "dict",
+      "key_info": [
+        "success",
+        "filename",
+        "language",
+        "lines",
+        "preview"
+      ]
+    },
+    "goal_achieved": true,
+    "goal_evidence": "Dict with keys: ['success', 'filename', 'language', 'lines', 'preview']"
+  },
+  "trace": [
+    {
+      "ts": "2026-04-21T04:05:02.318446+00:00",
+      "event": "PLAN",
+      "data": {
+        "steps": [
+          {
+            "step": 1,
+            "task": "write a python hello world to /tmp/hello.py"
+          }
+        ]
+      }
+    },
+    {
+      "ts": "2026-04-21T04:05:02.320219+00:00",
+      "event": "TOOL_SELECTED",
+      "data": {
+        "step": "write a python hello world to /tmp/hello.py",
+        "tool": "write_code",
+        "arguments": {
+          "filename": "/tmp/hello.py",
+          "language": "python",
+          "description": "write a python hello world to"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T04:05:02.321927+00:00",
+      "event": "RESULT_SUMMARY",
+      "data": {
+        "step": "write a python hello world to /tmp/hello.py",
+        "summary": {
+          "summary": "Dict with keys: ['success', 'filename', 'language', 'lines', 'preview']",
+          "type": "dict",
+          "key_info": [
+            "success",
+            "filename",
+            "language",
+            "lines",
+            "preview"
+          ]
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T04:05:02.322021+00:00",
+      "event": "CRITIC_SCORE",
+      "data": {
+        "step": "write a python hello world to /tmp/hello.py",
+        "verdict": {
+          "score": 0.95,
+          "decision": "correct",
+          "reason": "tool returned non-empty dict output",
+          "suggested_tool": "write_code"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T04:05:02.322313+00:00",
+      "event": "MEMORY_WRITE",
+      "data": {
+        "task": "write a python hello world to /tmp/hello.py",
+        "tool": "write_code",
+        "success": true,
+        "score": 0.95,
+        "timestamp": "2026-04-21T04:05:02.322031"
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+  <h2>{{ run_id }}</h2>
+  <p><strong>Task:</strong> {{ result.task }}</p>
+  <p><strong>Goal Achieved:</strong> <span class="badge {{ 'good' if result.goal_achieved else 'bad' }}">{{ result.goal_achieved }}</span></p>
+  <p><a href="/run/{{ run_id }}/export">Export JSON</a> <a href="/run/{{ run_id }}/export/markdown">Export MD</a></p>
+</div>
+<div class="panel">
+  <table>
+    <thead><tr><th>Timestamp</th><th>Event</th><th>Payload</th></tr></thead>
+    <tbody>
+      {% for row in trace_rows %}
+      <tr class="{{ row.css_class }}">
+        <td>{{ row.timestamp }}</td>
+        <td>{{ row.event }}</td>
+        <td><pre>{{ row.data }}</pre></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

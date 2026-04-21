@@ -1,20 +1,12 @@
-"""Ollama prompt backend with retry logic."""
+"""Ollama prompt backend using the local HTTP API."""
 
 from __future__ import annotations
-import os
-import shutil
-import subprocess
-import time
+
 import requests
 
 
-def _safe_env() -> dict[str, str]:
-    allowed = {"PATH", "HOME", "OLLAMA_HOST", "OLLAMA_MODELS"}
-    return {k: v for k, v in os.environ.items() if k in allowed}
-
-
 class OllamaBackend:
-    """Prompt-in, text-out backend around the local Ollama CLI."""
+    """Prompt-in, text-out backend around the local Ollama HTTP API."""
 
     def __init__(
         self,
@@ -35,69 +27,41 @@ class OllamaBackend:
     @property
     def model_name(self) -> str:
         """Compatibility alias used by newer architecture layers."""
-        return self.model
+        return self.model.strip()
 
     def generate(self, prompt: str) -> str:
-        host = (
-            os.getenv("AIWORKER_OLLAMA_HOST")
-            or os.getenv("OLLAMA_HOST")
-            or "http://127.0.0.1:11434"
-        ).rstrip("/")
-        attempts = self.max_retries + 1
-        last_error: Exception | None = None
-
-        for attempt in range(1, attempts + 1):
-            try:
-                response = requests.post(
-                    f"{host}/api/generate",
-                    json={
-                        "model": self.model_name,
-                        "prompt": prompt,
-                        "stream": False,
-                    },
-                    timeout=self.timeout,
-                )
-                response.raise_for_status()
-                data = response.json()
-                return str(data.get("response", "")).strip()
-            except Exception as exc:
-                last_error = exc
-                if attempt >= attempts:
-                    break
-                time.sleep(min(0.25 * attempt, 1.0))
-
-        raise RuntimeError(
-            f"Ollama backend failed after {attempts} attempt(s): {last_error}"
-        )
-
-    def _run_with_popen(self, prompt: str) -> subprocess.CompletedProcess[str]:
-        proc = subprocess.Popen(
-            ["ollama", "run", self.model],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=_safe_env(),
-        )
         try:
-            stdout, stderr = proc.communicate(
-                input=prompt.encode(),
-                timeout=self.timeout,
+            url = "http://127.0.0.1:11434/api/generate"
+
+            payload = {
+                "model": self.model_name.strip(),
+                "prompt": prompt,
+                "stream": False,
+            }
+
+            headers = {
+                "Content-Type": "application/json",
+            }
+
+            print(f"[OLLAMA REQUEST] model={self.model_name}")
+
+            response = requests.post(
+                url,
+                json=payload,
+                headers=headers,
+                timeout=300,
             )
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            raise
 
-        if isinstance(stdout, bytes):
-            stdout = stdout.decode()
-        if isinstance(stderr, bytes):
-            stderr = stderr.decode()
+            print(f"[OLLAMA DEBUG] status={response.status_code}")
+            print(f"[OLLAMA DEBUG] body={response.text[:300]}")
 
-        return subprocess.CompletedProcess(
-            args=["ollama", "run", self.model_name],
-            returncode=proc.returncode,
-            stdout=stdout,
-            stderr=stderr,
-        )
+            response.raise_for_status()
+
+            data = response.json()
+
+            return data.get("response", "").strip()
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(f"Ollama HTTP request failed: {e}")
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -106,11 +70,3 @@ class OllamaBackend:
             "timeout": self.timeout,
             "max_retries": self.max_retries,
         }
-
-    @staticmethod
-    def _build_env() -> dict[str, str]:
-        return _safe_env()
-
-
-def _is_mocked_callable(value: object) -> bool:
-    return value.__class__.__module__.startswith("unittest.mock")

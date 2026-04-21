@@ -1,0 +1,78 @@
+{
+  "run_id": "828744aa",
+  "result": {
+    "run_id": "828744aa",
+    "task": "read runner.py",
+    "steps_completed": 1,
+    "failures": [],
+    "final_summary": {
+      "summary": "from __future__ import annotations\n\nimport argparse\nimport json\nimport sys\nfrom pathlib import Path\nfrom typing import Any, Sequence\n\nfrom config import cfg\nfrom config import settings as root_settings\nfrom executor import Executor\nfrom friday.planner import Planner\nfrom memory.skills import SkillLi",
+      "type": "text",
+      "key_info": []
+    },
+    "goal_achieved": true,
+    "goal_evidence": "from __future__ import annotations\n\nimport argparse\nimport json\nimport sys\nfrom pathlib import Path\nfrom typing import Any, Sequence\n\nfrom config import cfg\nfrom config import settings as root_settings\nfrom executor import Executor\nfrom friday.planner import Planner\nfrom memory.skills import SkillLi",
+    "suggested_next_task": "summarize runner.py"
+  },
+  "trace": [
+    {
+      "ts": "2026-04-21T04:45:22.488414+00:00",
+      "event": "PLAN",
+      "data": {
+        "steps": [
+          {
+            "step": 1,
+            "task": "read runner.py"
+          }
+        ]
+      }
+    },
+    {
+      "ts": "2026-04-21T04:45:22.490106+00:00",
+      "event": "TOOL_SELECTED",
+      "data": {
+        "step": "read runner.py",
+        "tool": "read_file",
+        "arguments": {
+          "path": "runner.py"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T04:45:22.490551+00:00",
+      "event": "RESULT_SUMMARY",
+      "data": {
+        "step": "read runner.py",
+        "summary": {
+          "summary": "from __future__ import annotations\n\nimport argparse\nimport json\nimport sys\nfrom pathlib import Path\nfrom typing import Any, Sequence\n\nfrom config import cfg\nfrom config import settings as root_settings\nfrom executor import Executor\nfrom friday.planner import Planner\nfrom memory.skills import SkillLi",
+          "type": "text",
+          "key_info": []
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T04:45:22.490608+00:00",
+      "event": "CRITIC_SCORE",
+      "data": {
+        "step": "read runner.py",
+        "verdict": {
+          "score": 0.7,
+          "decision": "correct",
+          "reason": "tool returned non-empty text output",
+          "suggested_tool": "read_file"
+        }
+      }
+    },
+    {
+      "ts": "2026-04-21T04:45:22.490981+00:00",
+      "event": "MEMORY_WRITE",
+      "data": {
+        "task": "read runner.py",
+        "tool": "read_file",
+        "success": true,
+        "score": 0.7,
+        "timestamp": "2026-04-21T04:45:22.490617"
+      }
+    }
+  ]
+}

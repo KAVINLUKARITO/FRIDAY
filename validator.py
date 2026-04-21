@@ -2,21 +2,22 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from typing import Any
-
-from pydantic import BaseModel, ValidationError as PydanticValidationError
 
 from tools import TOOL_REGISTRY
 
 
-class Action(BaseModel):
+@dataclass
+class Action:
     tool_name: str
     parameters: dict[str, Any]
     reason: str
     step_number: int
 
 
-class ValidatedAction(BaseModel):
+@dataclass
+class ValidatedAction:
     tool_name: str
     parameters: dict[str, Any]
     reason: str
@@ -32,9 +33,16 @@ class Validator:
     """Validate planner output before execution."""
 
     def validate(self, raw: dict[str, Any]) -> ValidatedAction:
+        if not isinstance(raw, dict):
+            raise ValidationError("action must be a dict")
         try:
-            action = Action.model_validate(raw)
-        except PydanticValidationError as exc:
+            action = Action(
+                tool_name=str(raw["tool_name"]),
+                parameters=dict(raw["parameters"]),
+                reason=str(raw["reason"]),
+                step_number=int(raw["step_number"]),
+            )
+        except Exception as exc:
             raise ValidationError(str(exc)) from exc
 
         if action.tool_name not in TOOL_REGISTRY:

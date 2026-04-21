@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+  <strong>Total Runs:</strong> {{ stats.total_runs }} |
+  <strong>Goals Achieved:</strong> {{ stats.goals_achieved }} |
+  <strong>Total Failures:</strong> {{ stats.total_failures }}
+</div>
+<div class="panel">
+  {% if runs %}
+  <table>
+    <thead>
+      <tr><th>Run ID</th><th>Task</th><th>Steps</th><th>Goal</th><th>Failures</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for run in runs %}
+      <tr>
+        <td>{{ run.run_id }}</td>
+        <td>{{ run.task[:60] }}</td>
+        <td>{{ run.steps_completed }}</td>
+        <td>{{ run.goal_achieved }}</td>
+        <td>{{ run.failures }}</td>
+        <td><a href="/run/{{ run.run_id }}">View</a> <a href="/run/{{ run.run_id }}/export">Export JSON</a> <a href="/run/{{ run.run_id }}/export/markdown">Export MD</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No runs yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,3 +1,7 @@
 from pathlib import Path
 
-__path__ = [str(Path(__file__).resolve().parent.parent / "aiworker" / "agents")]
+_here = Path(__file__).resolve().parent
+_legacy = _here.parent / "aiworker" / "agents"
+__path__ = [str(_here)]
+if _legacy.exists():
+    __path__.append(str(_legacy))
